@@ -1,65 +1,248 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import type { Narrator, GenerateResult } from "@/lib/types";
+import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
+
+type GenResponse = GenerateResult & {
+  raw: string;
+  generation_id: string | null;
+  used_pattern: boolean;
+};
+
+export default function GeneratePage() {
+  const [narrators, setNarrators] = useState<Narrator[]>([]);
+  const [narratorId, setNarratorId] = useState("");
+  const [mode, setMode] = useState<"input" | "suggest">("input");
+  const [theme, setTheme] = useState("");
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<GenResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<Narrator[]>("/api/narrators")
+      .then((ns) => {
+        setNarrators(ns);
+        if (ns.length) setNarratorId(ns[0].id);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  const selected = narrators.find((n) => n.id === narratorId);
+
+  async function suggestThemes() {
+    setError(null);
+    setSuggesting(true);
+    setSuggestions([]);
+    try {
+      const r = await api.post<{ themes: string[] }>("/api/themes/suggest", {
+        narrator_id: narratorId,
+      });
+      setSuggestions(r.themes);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  async function generate() {
+    if (!narratorId || !theme.trim()) return;
+    setError(null);
+    setGenerating(true);
+    setResult(null);
+    try {
+      const r = await api.post<GenResponse>("/api/generate", {
+        narrator_id: narratorId,
+        theme: theme.trim(),
+      });
+      setResult(r);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-5">
+      <h1 className="text-lg font-bold">台本を生成</h1>
+
+      {narrators.length === 0 && (
+        <Card className="p-4 text-sm text-neutral-600">
+          ナレーターがいません。
+          <Link href="/settings" className="text-blue-600 underline ml-1">
+            設定
+          </Link>
+          から追加し、
+          <Link href="/scripts" className="text-blue-600 underline mx-1">
+            お手本
+          </Link>
+          を登録してください。
+        </Card>
+      )}
+
+      {/* ナレーター選択 */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">ナレーター</label>
+        <select
+          value={narratorId}
+          onChange={(e) => {
+            setNarratorId(e.target.value);
+            setSuggestions([]);
+            setResult(null);
+          }}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+        >
+          {narrators.map((n) => (
+            <option key={n.id} value={n.id}>
+              {n.name}
+            </option>
+          ))}
+        </select>
+        {selected?.description && (
+          <p className="text-xs text-neutral-500">{selected.description}</p>
+        )}
+      </div>
+
+      {/* テーマの決め方 */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">テーマ</label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode("input")}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
+              mode === "input"
+                ? "bg-neutral-900 text-white border-neutral-900"
+                : "bg-white text-neutral-600 border-neutral-300"
+            }`}
+          >
+            自分で入力
+          </button>
+          <button
+            onClick={() => setMode("suggest")}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
+              mode === "suggest"
+                ? "bg-neutral-900 text-white border-neutral-900"
+                : "bg-white text-neutral-600 border-neutral-300"
+            }`}
+          >
+            提案してもらう
+          </button>
+        </div>
+
+        {mode === "suggest" && (
+          <div className="space-y-2">
+            <Button
+              variant="secondary"
+              onClick={suggestThemes}
+              disabled={!narratorId || suggesting}
+              className="w-full"
+            >
+              {suggesting ? <Spinner label="提案中…" /> : "テーマ候補を出す"}
+            </Button>
+            {suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setTheme(s)}
+                    className={`px-3 py-1.5 rounded-full text-sm border ${
+                      theme === s
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white border-neutral-300 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <textarea
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          placeholder="例：知らないと損する電子レンジの裏ワザ"
+          rows={2}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base resize-y"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+      </div>
+
+      <Button
+        onClick={generate}
+        disabled={!narratorId || !theme.trim() || generating}
+        className="w-full py-3 text-base"
+      >
+        {generating ? <Spinner label="生成中…" /> : "✨ 生成する"}
+      </Button>
+
+      <ErrorBox message={error} />
+
+      {/* 結果 */}
+      {result && (
+        <div className="space-y-4">
+          {!result.used_pattern && (
+            <p className="text-xs text-amber-600">
+              ※ 型が未抽出のため過去データ全件から生成しました。
+              <Link href="/patterns" className="underline ml-1">
+                型を抽出
+              </Link>
+              するとトークン節約＆一貫性が上がります。
+            </p>
+          )}
+
+          <ResultBlock title="タイトル" copyText={result.titles.join("\n")}>
+            <ol className="list-decimal list-inside space-y-1">
+              {result.titles.map((t, i) => (
+                <li key={i} className="text-[15px]">
+                  {t}
+                </li>
+              ))}
+            </ol>
+          </ResultBlock>
+
+          <ResultBlock title="台本" copyText={result.script}>
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
+              {result.script}
+            </p>
+          </ResultBlock>
+
+          <ResultBlock title="ストーリー（Flow用）" copyText={result.story}>
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
+              {result.story}
+            </p>
+          </ResultBlock>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
     </div>
+  );
+}
+
+function ResultBlock({
+  title,
+  copyText,
+  children,
+}: {
+  title: string;
+  copyText: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-sm">{title}</h2>
+        <CopyButton text={copyText} />
+      </div>
+      <div>{children}</div>
+    </Card>
   );
 }
