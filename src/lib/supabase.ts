@@ -15,6 +15,7 @@ export const T = {
   scripts: "vsg_scripts",
   patterns: "vsg_patterns",
   generations: "vsg_generations",
+  products: "vsg_products",
 } as const;
 
 if (!url || !serviceRoleKey) {

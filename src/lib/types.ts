@@ -18,6 +18,15 @@ export type Script = {
   created_at: string;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
 export type Pattern = {
   id: string;
   narrator_id: string;
@@ -31,6 +40,7 @@ export type Pattern = {
 export type Generation = {
   id: string;
   narrator_id: string | null;
+  product_id: string | null;
   input_theme: string | null;
   output_titles: string | null;
   output_script: string | null;

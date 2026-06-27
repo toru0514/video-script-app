@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Narrator } from "@/lib/types";
+import type { Product } from "@/lib/types";
 import { Button, Card, ErrorBox, Spinner } from "@/components/ui";
-import { ProductsManager } from "@/components/ProductsManager";
 
-export default function SettingsPage() {
-  const [narrators, setNarrators] = useState<Narrator[]>([]);
+export function ProductsManager() {
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,8 +17,7 @@ export default function SettingsPage() {
   async function load() {
     setLoading(true);
     try {
-      const ns = await api.get<Narrator[]>("/api/narrators?all=1");
-      setNarrators(ns);
+      setProducts(await api.get<Product[]>("/api/products?all=1"));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -36,7 +34,7 @@ export default function SettingsPage() {
     setAdding(true);
     setError(null);
     try {
-      await api.post("/api/narrators", {
+      await api.post("/api/products", {
         name: newName.trim(),
         description: newDesc.trim() || undefined,
       });
@@ -50,61 +48,56 @@ export default function SettingsPage() {
     }
   }
 
-  async function update(id: string, patch: Partial<Narrator>) {
+  async function update(id: string, patch: Partial<Product>) {
     setError(null);
     try {
-      await api.patch("/api/narrators", { id, ...patch });
+      await api.patch("/api/products", { id, ...patch });
       await load();
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  async function move(n: Narrator, dir: -1 | 1) {
-    const sorted = [...narrators].sort((a, b) => a.sort_order - b.sort_order);
-    const idx = sorted.findIndex((x) => x.id === n.id);
+  async function move(p: Product, dir: -1 | 1) {
+    const sorted = [...products].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((x) => x.id === p.id);
     const swap = sorted[idx + dir];
     if (!swap) return;
-    await api.patch("/api/narrators", { id: n.id, sort_order: swap.sort_order });
-    await api.patch("/api/narrators", { id: swap.id, sort_order: n.sort_order });
+    await api.patch("/api/products", { id: p.id, sort_order: swap.sort_order });
+    await api.patch("/api/products", { id: swap.id, sort_order: p.sort_order });
     await load();
   }
 
-  async function remove(n: Narrator) {
-    if (
-      !confirm(
-        `「${n.name}」を無効化しますか？（お手本・履歴は残ります。完全削除ではありません）`,
-      )
-    )
-      return;
-    await update(n.id, { is_active: false });
+  async function remove(p: Product) {
+    if (!confirm(`「${p.name}」を無効化しますか？（履歴は残ります）`)) return;
+    await update(p.id, { is_active: false });
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div>
-        <h1 className="text-lg font-bold">ナレーター設定</h1>
+        <h2 className="text-base font-bold">商品リスト</h2>
         <p className="text-sm text-neutral-500 mt-1">
-          ナレーターを追加・編集・並び替え・無効化できます。
+          生成画面で商品を選ぶと、その商品に絞った台本を作れます。
         </p>
       </div>
 
       <ErrorBox message={error} />
 
-      {/* 追加フォーム */}
       <Card className="p-4 space-y-3">
-        <h2 className="font-bold text-sm">新しいナレーターを追加</h2>
+        <h3 className="font-bold text-sm">新しい商品を追加</h3>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="表示名（例：ゆっくり霊夢）"
+          placeholder="商品名（例：木の指輪）"
           className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
         />
-        <input
+        <textarea
           value={newDesc}
           onChange={(e) => setNewDesc(e.target.value)}
-          placeholder="雰囲気メモ（任意）"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
+          placeholder="素材・特徴・訴求ポイント（任意。例：金属アレルギー対応、防水、軽い、ウォールナット材）"
+          rows={2}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base resize-y"
         />
         <Button onClick={add} disabled={!newName.trim() || adding}>
           {adding ? <Spinner label="追加中…" /> : "追加"}
@@ -113,14 +106,16 @@ export default function SettingsPage() {
 
       {loading ? (
         <Spinner label="読み込み中…" />
+      ) : products.length === 0 ? (
+        <p className="text-sm text-neutral-500">まだ商品がありません。</p>
       ) : (
         <div className="space-y-3">
-          {narrators.map((n, i) => (
-            <NarratorRow
-              key={n.id}
-              n={n}
+          {products.map((p, i) => (
+            <ProductRow
+              key={p.id}
+              p={p}
               isFirst={i === 0}
-              isLast={i === narrators.length - 1}
+              isLast={i === products.length - 1}
               onUpdate={update}
               onMove={move}
               onRemove={remove}
@@ -128,35 +123,31 @@ export default function SettingsPage() {
           ))}
         </div>
       )}
-
-      <hr className="border-neutral-200" />
-
-      <ProductsManager />
     </div>
   );
 }
 
-function NarratorRow({
-  n,
+function ProductRow({
+  p,
   isFirst,
   isLast,
   onUpdate,
   onMove,
   onRemove,
 }: {
-  n: Narrator;
+  p: Product;
   isFirst: boolean;
   isLast: boolean;
-  onUpdate: (id: string, patch: Partial<Narrator>) => void;
-  onMove: (n: Narrator, dir: -1 | 1) => void;
-  onRemove: (n: Narrator) => void;
+  onUpdate: (id: string, patch: Partial<Product>) => void;
+  onMove: (p: Product, dir: -1 | 1) => void;
+  onRemove: (p: Product) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(n.name);
-  const [desc, setDesc] = useState(n.description ?? "");
+  const [name, setName] = useState(p.name);
+  const [desc, setDesc] = useState(p.description ?? "");
 
   return (
-    <Card className={`p-4 space-y-2 ${!n.is_active ? "opacity-60" : ""}`}>
+    <Card className={`p-4 space-y-2 ${!p.is_active ? "opacity-60" : ""}`}>
       {editing ? (
         <div className="space-y-2">
           <input
@@ -164,16 +155,17 @@ function NarratorRow({
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
           />
-          <input
+          <textarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            placeholder="雰囲気メモ"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
+            placeholder="素材・特徴・訴求ポイント"
+            rows={2}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base resize-y"
           />
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                onUpdate(n.id, { name, description: desc });
+                onUpdate(p.id, { name, description: desc });
                 setEditing(false);
               }}
             >
@@ -189,27 +181,29 @@ function NarratorRow({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="font-medium flex items-center gap-2">
-                {n.name}
-                {!n.is_active && (
+                {p.name}
+                {!p.is_active && (
                   <span className="text-xs bg-neutral-200 text-neutral-500 px-2 py-0.5 rounded-full">
                     無効
                   </span>
                 )}
               </div>
-              {n.description && (
-                <p className="text-sm text-neutral-500">{n.description}</p>
+              {p.description && (
+                <p className="text-sm text-neutral-500 whitespace-pre-wrap">
+                  {p.description}
+                </p>
               )}
             </div>
             <div className="flex flex-col gap-1 shrink-0">
               <button
-                onClick={() => onMove(n, -1)}
+                onClick={() => onMove(p, -1)}
                 disabled={isFirst}
                 className="text-xs px-2 py-0.5 rounded bg-neutral-100 disabled:opacity-30"
               >
                 ↑
               </button>
               <button
-                onClick={() => onMove(n, 1)}
+                onClick={() => onMove(p, 1)}
                 disabled={isLast}
                 className="text-xs px-2 py-0.5 rounded bg-neutral-100 disabled:opacity-30"
               >
@@ -221,14 +215,14 @@ function NarratorRow({
             <Button variant="secondary" onClick={() => setEditing(true)}>
               編集
             </Button>
-            {n.is_active ? (
-              <Button variant="danger" onClick={() => onRemove(n)}>
+            {p.is_active ? (
+              <Button variant="danger" onClick={() => onRemove(p)}>
                 無効化
               </Button>
             ) : (
               <Button
                 variant="secondary"
-                onClick={() => onUpdate(n.id, { is_active: true })}
+                onClick={() => onUpdate(p.id, { is_active: true })}
               >
                 有効化
               </Button>

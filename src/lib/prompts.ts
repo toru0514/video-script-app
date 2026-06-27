@@ -1,4 +1,11 @@
-import type { Script, Pattern, GenerateResult } from "./types";
+import type { Script, Pattern, Product, GenerateResult } from "./types";
+
+// 商品情報をプロンプト用のテキストにする
+function productBlock(product?: Product | null): string {
+  if (!product) return "";
+  const desc = product.description ? `\n商品の説明・特徴：${product.description}` : "";
+  return `\n\n【対象商品】\nこの動画で必ず取り上げる商品：「${product.name}」${desc}\n台本・タイトル・ストーリーは、必ずこの商品「${product.name}」についてのものにしてください。他の商品を勝手に登場させないでください。`;
+}
 
 // ============================================================
 // ステップ1：型抽出プロンプト
@@ -59,6 +66,7 @@ export function buildSuggestPrompt(
   name: string,
   pattern: Pattern | null,
   scripts: Script[],
+  product?: Product | null,
 ): string {
   let context: string;
   if (pattern) {
@@ -73,9 +81,14 @@ ${scripts
   .join("\n")}`;
   }
 
+  const productLine = product
+    ? `商品「${product.name}」を題材にした、`
+    : "この傾向・ジャンルに合う、";
+
   return `以下は私のナレーター「${name}」の過去動画の傾向です。
-この傾向・ジャンルに合う、新しい動画テーマの候補を5つ提案してください。
+${productLine}新しい動画テーマ（切り口）の候補を5つ提案してください。
 各候補は短いフレーズで、1行ずつ。番号や記号、説明は不要です。
+${productBlock(product)}
 
 ${context}`;
 }
@@ -96,8 +109,24 @@ export function buildGeneratePrompt(args: {
   theme: string;
   pattern?: Pattern | null;
   scripts?: Script[];
+  product?: Product | null;
+  targetChars?: number; // お手本台本の平均文字数（長さの目安）
 }): string {
-  const { name, theme, pattern, scripts } = args;
+  const { name, theme, pattern, scripts, product, targetChars } = args;
+
+  // テーマ指定（商品選択時はテーマ任意）
+  const themeLine = theme
+    ? `新テーマ「${theme}」`
+    : product
+      ? `商品「${product.name}」`
+      : "新テーマ";
+
+  // 台本の長さ制約。お手本の平均文字数があればそれを基準にする。
+  const lengthRule = targetChars
+    ? `【最重要・長さ】台本はお手本と同じく短くしてください。目安は全体で約${targetChars}文字、長くても${Math.round(
+        targetChars * 1.3,
+      )}文字以内。TikTok向けにテンポよく短く読み切れる長さにし、冗長な説明や同じ意味の繰り返しは避け、要点だけを残してください。`
+    : `【最重要・長さ】台本はお手本と同じく短く、TikTok向けに数行（テンポよく読み切れる長さ）にしてください。冗長な説明や繰り返しは避けてください。`;
 
   let reference: string;
   if (pattern) {
@@ -125,17 +154,20 @@ ${data}`;
 
   return `あなたはTikTok動画の構成作家です。
 ${reference}
+${productBlock(product)}
 
-この型・雰囲気を厳密に踏襲し、ナレーター「${name}」の雰囲気を保ったまま、
-新テーマ「${theme}」について次を出力してください。
+踏襲するのは「型」だけです。つまり——言い回しの傾向・口調・構成の運び・テンポ・温度感。
+【最重要・流用禁止】過去動画の具体的な文章やフレーズ、決まり文句（同じ書き出し・同じ言い回し・同じ締め）を、そのまま、または少し変えただけで使い回さないでください。過去に出てきた表現は避け、${themeLine}に合わせて言葉はすべてゼロから新しく書き起こしてください。同じ意味でも必ず別の表現にします。
+ナレーター「${name}」らしさ（口調・トーン）は保ちつつ、内容と言葉は${themeLine}に即した新鮮なものにしてください。
 日本語のニュアンス・テンポを重視してください。
+${lengthRule}
 必ず下記のフォーマット（見出しは固定）で出力してください。
 
 # タイトル
 （タイトル案を3つ、番号付きで1行ずつ。各行はタイトルそのものだけを書き、「案1」などの語は書かない）
 
 # 台本
-（ナレーションが読み上げる本文）
+（ナレーションが読み上げる本文。上記の長さ制約を必ず守る）
 
 # ストーリー
 （Flow等のAI動画生成に渡す、映像の流れ・シーン構成の説明。シーンごとに分かる粒度で）`;

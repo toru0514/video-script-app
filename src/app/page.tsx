@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Narrator, GenerateResult } from "@/lib/types";
+import type { Narrator, Product, GenerateResult } from "@/lib/types";
 import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
 
 type GenResponse = GenerateResult & {
@@ -15,6 +15,8 @@ type GenResponse = GenerateResult & {
 export default function GeneratePage() {
   const [narrators, setNarrators] = useState<Narrator[]>([]);
   const [narratorId, setNarratorId] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productId, setProductId] = useState("");
   const [mode, setMode] = useState<"input" | "suggest">("input");
   const [theme, setTheme] = useState("");
 
@@ -33,9 +35,14 @@ export default function GeneratePage() {
         if (ns.length) setNarratorId(ns[0].id);
       })
       .catch((e) => setError(e.message));
+    api
+      .get<Product[]>("/api/products")
+      .then(setProducts)
+      .catch(() => {});
   }, []);
 
   const selected = narrators.find((n) => n.id === narratorId);
+  const selectedProduct = products.find((p) => p.id === productId);
 
   async function suggestThemes() {
     setError(null);
@@ -44,6 +51,7 @@ export default function GeneratePage() {
     try {
       const r = await api.post<{ themes: string[] }>("/api/themes/suggest", {
         narrator_id: narratorId,
+        product_id: productId || undefined,
       });
       setSuggestions(r.themes);
     } catch (e) {
@@ -54,7 +62,7 @@ export default function GeneratePage() {
   }
 
   async function generate() {
-    if (!narratorId || !theme.trim()) return;
+    if (!narratorId || (!theme.trim() && !productId)) return;
     setError(null);
     setGenerating(true);
     setResult(null);
@@ -62,6 +70,7 @@ export default function GeneratePage() {
       const r = await api.post<GenResponse>("/api/generate", {
         narrator_id: narratorId,
         theme: theme.trim(),
+        product_id: productId || undefined,
       });
       setResult(r);
     } catch (e) {
@@ -112,9 +121,53 @@ export default function GeneratePage() {
         )}
       </div>
 
+      {/* 商品選択 */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          商品{" "}
+          <span className="text-neutral-400 font-normal">（任意・選ぶとその商品に絞って生成）</span>
+        </label>
+        <select
+          value={productId}
+          onChange={(e) => {
+            setProductId(e.target.value);
+            setSuggestions([]);
+          }}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+        >
+          <option value="">指定なし（自由なテーマ）</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        {selectedProduct?.description && (
+          <p className="text-xs text-neutral-500 whitespace-pre-wrap">
+            {selectedProduct.description}
+          </p>
+        )}
+        {products.length === 0 && (
+          <p className="text-xs text-neutral-400">
+            商品は
+            <Link href="/settings" className="underline mx-1">
+              設定
+            </Link>
+            で登録できます。
+          </p>
+        )}
+      </div>
+
       {/* テーマの決め方 */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">テーマ</label>
+        <label className="text-sm font-medium">
+          テーマ・切り口
+          {productId && (
+            <span className="text-neutral-400 font-normal">
+              {" "}（商品選択中は任意。空なら商品全体の紹介に）
+            </span>
+          )}
+        </label>
         <div className="flex gap-2">
           <button
             onClick={() => setMode("input")}
@@ -179,7 +232,7 @@ export default function GeneratePage() {
 
       <Button
         onClick={generate}
-        disabled={!narratorId || !theme.trim() || generating}
+        disabled={!narratorId || (!theme.trim() && !productId) || generating}
         className="w-full py-3 text-base"
       >
         {generating ? <Spinner label="生成中…" /> : "✨ 生成する"}

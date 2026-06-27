@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import type { Narrator, Script } from "@/lib/types";
 import { Button, Card, ErrorBox, Spinner } from "@/components/ui";
 
-const empty = { title: "", script: "", story: "", theme: "", note: "" };
+const empty = { narrator_id: "", title: "", script: "", story: "", theme: "", note: "" };
 
 export default function ScriptsPage() {
   const [narrators, setNarrators] = useState<Narrator[]>([]);
@@ -60,10 +60,15 @@ export default function ScriptsPage() {
     setSaving(true);
     setError(null);
     try {
+      const targetNarrator = form.narrator_id || narratorId;
       if (editingId) {
-        await api.patch("/api/scripts", { id: editingId, ...form });
+        await api.patch("/api/scripts", {
+          id: editingId,
+          ...form,
+          narrator_id: targetNarrator,
+        });
       } else {
-        await api.post("/api/scripts", { narrator_id: narratorId, ...form });
+        await api.post("/api/scripts", { ...form, narrator_id: targetNarrator });
       }
       resetForm();
       await loadScripts();
@@ -77,6 +82,7 @@ export default function ScriptsPage() {
   function edit(s: Script) {
     setEditingId(s.id);
     setForm({
+      narrator_id: s.narrator_id,
       title: s.title,
       script: s.script,
       story: s.story,
@@ -106,7 +112,7 @@ export default function ScriptsPage() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">ナレーター</label>
+        <label className="text-sm font-medium">ナレーター（一覧の絞り込み）</label>
         <select
           value={narratorId}
           onChange={(e) => {
@@ -130,6 +136,24 @@ export default function ScriptsPage() {
         <h2 className="font-bold text-sm">
           {editingId ? "お手本を編集" : "お手本を追加"}
         </h2>
+        <Field label="ナレーター *">
+          <select
+            value={form.narrator_id || narratorId}
+            onChange={(e) => setForm({ ...form, narrator_id: e.target.value })}
+            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+          >
+            {narrators.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}
+              </option>
+            ))}
+          </select>
+          {editingId && (
+            <p className="text-xs text-neutral-500">
+              ここを変えると、このお手本のナレーターを付け替えます。
+            </p>
+          )}
+        </Field>
         <Field label="タイトル *">
           <input
             value={form.title}
