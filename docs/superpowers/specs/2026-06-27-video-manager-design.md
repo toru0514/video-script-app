@@ -99,8 +99,10 @@ export type Video = {
 ## API 設計
 
 ### `GET /api/videos`
-- 動画一覧を返す。新しい順（`created_at desc`）。
-- ナレーター名・商品名はクライアントで解決（既存 history ページと同じパターン）か、API側で join して返す。実装計画でどちらかに統一する。既存パターン（クライアント解決）に合わせるのを推奨。
+- クエリなし: 動画一覧を返す。新しい順（`created_at desc`）。
+- `?id=<uuid>`: 単一動画を返す。**詳細ページ用に、`generation_id` 経由で生成元の台本(`output_script`)・ストーリー(`output_story`)・タイトル候補(`output_titles`)を同梱して返す**（例: `{ ...video, generation: { output_titles, output_script, output_story } | null }`）。
+  - 本リポジトリの慣習（DBアクセスは全て Route Handler 経由、サーバーコンポーネントから直接 `getSupabase()` は呼ばない）に従い、詳細ページはこのエンドポイントから取得する。生成元データ取得用に別途 generation-by-id ルートは作らない。
+- ナレーター名・商品名は一覧側ではクライアントで解決（既存 history ページと同じパターン）。
 
 ### `PATCH /api/videos`
 - body: `{ id, title?, narration_status?, video_status?, publish_status?, note? }`
@@ -128,6 +130,8 @@ export type Video = {
 - 生成結果画面でタイトル候補を**ラジオ選択**でき、選ぶと `PATCH /api/videos` で動画の `title` を更新する（「候補から1つ選ぶ」の実現）。
 - 「動画リストで見る」リンク（`/` または `/videos/[id]`）を表示。
 
+**タイトル候補の格納形式の注意**: `vsg_generations.output_titles` は配列ではなく改行(`\n`)区切りのテキスト（生成時に `result.titles.join("\n")` で保存）。`/generate` および詳細ページのラジオUIは `\n` で split して候補配列に戻すこと。
+
 ## 画面・ナビ構成
 
 ナビ（`src/components/NavBar.tsx`）を再編。アプリ名を「🎬 動画マネージャー」に変更。
@@ -153,7 +157,7 @@ export type Video = {
 - 動画が0件のときは空状態メッセージ（生成ページへの誘導）。
 
 ### 動画詳細ページ `/videos/[id]`
-- 採用タイトルの選び直し（`generation_id` 経由でタイトル候補を取得しラジオ選択）。
+- 採用タイトルの選び直し（`generation_id` 経由でタイトル候補を取得しラジオ選択）。`generation_id` が null（生成元が履歴から削除済み）の場合は候補を取得できないため、選び直しUIと台本/ストーリー表示は非表示にし、現在の `title` のみ編集可能とする（手入力フォールバック）。
 - 台本 / ストーリー(Flow用) の閲覧とコピー（既存 CopyButton 利用）。
 - メモ編集。
 - 3ステータスの変更。
@@ -163,6 +167,7 @@ export type Video = {
 
 - `supabase/schema.sql` に `vsg_videos` の定義（上記SQL）を追記。
 - 既存 Supabase プロジェクトへの適用は別途実行（MCP の `apply_migration` または SQL 実行）。`generation_id` 等の外部キーは既存テーブルを参照するため、適用順は既存テーブルの後。
+- **既知のスキーマdrift**: 現行 `supabase/schema.sql` には `vsg_products` テーブルおよび `vsg_generations.product_id` 列が未記載だが、`supabase.ts` / `api/generate/route.ts` は両方を使用しており、ライブDBには存在するとみられる。`vsg_videos` 追加時は `schema.sql` への追記とライブDBへの適用が乖離し得る点に留意（本仕様では `vsg_videos` 追加のみを扱い、既存driftの是正はスコープ外）。
 
 ## エラーハンドリング
 
