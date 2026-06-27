@@ -82,6 +82,9 @@ create table if not exists public.vsg_videos (
   id               uuid primary key default gen_random_uuid(),
   generation_id    uuid references public.vsg_generations(id) on delete set null,
   narrator_id      uuid references public.vsg_narrators(id) on delete set null,
+  -- vsg_products は本番DBにのみ存在する既存テーブル（意図的なスキーマdrift）。
+  -- このファイルには定義しないため、schema.sql をゼロから実行するには
+  -- 事前に vsg_products が存在している必要がある（バグではない）。
   product_id       uuid references public.vsg_products(id) on delete set null,
   title            text not null,
   narration_status text not null default 'not_requested'
@@ -92,6 +95,7 @@ create table if not exists public.vsg_videos (
                    check (publish_status in ('unpublished','published')),
   note             text,
   created_at       timestamptz not null default now(),
+  -- updated_at はAPI層（PATCHハンドラ）で更新する。DBトリガーは無い。
   updated_at       timestamptz not null default now()
 );
 
