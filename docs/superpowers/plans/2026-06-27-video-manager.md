@@ -567,7 +567,7 @@ export default function VideosPage() {
   useEffect(() => {
     load();
     api.get<Narrator[]>("/api/narrators?all=1").then(setNarrators).catch(() => {});
-    api.get<Product[]>("/api/products").then(setProducts).catch(() => {});
+    api.get<Product[]>("/api/products?all=1").then(setProducts).catch(() => {});
   }, []);
 
   async function updateStatus(v: Video, patch: Partial<Video>) {
@@ -747,7 +747,7 @@ function StatusSelect({
 }
 ```
 
-> `/api/narrators?all=1` と `/api/products` は既存（history/generate ページが利用）。
+> `/api/narrators?all=1` と `/api/products?all=1` は既存。`all=1` で無効化済みも含めて取得し、名前解決の欠落を防ぐ。
 
 - [ ] **Step 2: 型チェック**
 
