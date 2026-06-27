@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import type { Narrator, Product, Video } from "@/lib/types";
 import { Card, ErrorBox, Spinner } from "@/components/ui";
+import { StatusSelect } from "@/components/StatusSelect";
 import {
   NARRATION_OPTIONS,
   VIDEO_OPTIONS,
@@ -165,50 +166,21 @@ function VideoCard({
           label="ナレーション"
           value={v.narration_status}
           options={NARRATION_OPTIONS}
-          onChange={(val) => onChange(v, { narration_status: val as Video["narration_status"] })}
+          onChange={(val) => onChange(v, { narration_status: val })}
         />
         <StatusSelect
           label="動画生成"
           value={v.video_status}
           options={VIDEO_OPTIONS}
-          onChange={(val) => onChange(v, { video_status: val as Video["video_status"] })}
+          onChange={(val) => onChange(v, { video_status: val })}
         />
         <StatusSelect
           label="公開"
           value={v.publish_status}
           options={PUBLISH_OPTIONS}
-          onChange={(val) => onChange(v, { publish_status: val as Video["publish_status"] })}
+          onChange={(val) => onChange(v, { publish_status: val })}
         />
       </div>
     </Card>
-  );
-}
-
-function StatusSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs text-neutral-500">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
