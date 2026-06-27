@@ -78,7 +78,9 @@ export async function PATCH(req: Request) {
       update.publish_status = b.publish_status;
     }
     if (b.note !== undefined) {
-      update.note = b.note === null ? null : String(b.note);
+      if (b.note !== null && typeof b.note !== "string")
+        return fail("note が不正です");
+      update.note = b.note;
     }
 
     const sb = getSupabase();
@@ -87,8 +89,9 @@ export async function PATCH(req: Request) {
       .update(update)
       .eq("id", b.id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) return fail(error.message, 500);
+    if (!data) return fail("動画が見つかりません", 404);
     return ok(data);
   } catch (e) {
     return fail((e as Error).message, 500);
