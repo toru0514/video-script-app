@@ -3,8 +3,8 @@ import "./globals.css";
 import { NavBar } from "@/components/NavBar";
 
 export const metadata: Metadata = {
-  title: "TikTok台本ジェネレーター",
-  description: "過去動画の型を踏襲して、ナレーター別にタイトル・台本・ストーリーを生成",
+  title: "動画マネージャー",
+  description: "動画の制作進行（ナレーション・動画生成・公開）を管理し、台本・ストーリーを生成",
 };
 
 export const viewport = {
