@@ -105,10 +105,29 @@ export async function POST(req: Request) {
       .select()
       .single();
 
+    // 生成をきっかけに動画(TODO)を自動作成。タイトルは第1候補をデフォルト採用。
+    let videoId: string | null = null;
+    if (gen?.id) {
+      const firstTitle =
+        result.titles[0]?.trim() || (theme ?? "").trim() || "無題の動画";
+      const { data: video } = await sb
+        .from(T.videos)
+        .insert({
+          generation_id: gen.id,
+          narrator_id,
+          product_id: product?.id ?? null,
+          title: firstTitle,
+        })
+        .select("id")
+        .single();
+      videoId = video?.id ?? null;
+    }
+
     return ok({
       ...result,
       raw: text,
       generation_id: gen?.id ?? null,
+      video_id: videoId,
       used_pattern: !!pattern,
     });
   } catch (e) {
