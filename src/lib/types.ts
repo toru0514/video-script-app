@@ -54,3 +54,29 @@ export type GenerateResult = {
   script: string;
   story: string;
 };
+
+export type NarrationStatus = "not_requested" | "recording" | "done";
+export type VideoStatus = "not_requested" | "rendering" | "done";
+export type PublishStatus = "unpublished" | "published";
+
+export type Video = {
+  id: string;
+  generation_id: string | null;
+  narrator_id: string | null;
+  product_id: string | null;
+  title: string;
+  narration_status: NarrationStatus;
+  video_status: VideoStatus;
+  publish_status: PublishStatus;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VideoDetail = Video & {
+  generation: {
+    output_titles: string | null;
+    output_script: string | null;
+    output_story: string | null;
+  } | null;
+};

@@ -105,10 +105,36 @@ export async function POST(req: Request) {
       .select()
       .single();
 
+    // 生成をきっかけに動画(TODO)を自動作成。タイトルは第1候補をデフォルト採用。
+    // 失敗しても生成結果は返す（video_id: null）。診断のためエラーはログに残す。
+    let videoId: string | null = null;
+    if (gen?.id) {
+      const firstTitle =
+        result.titles[0]?.trim() || (theme ?? "").trim() || "無題の動画";
+      try {
+        const { data: video, error: videoErr } = await sb
+          .from(T.videos)
+          .insert({
+            generation_id: gen.id,
+            narrator_id,
+            product_id: product?.id ?? null,
+            title: firstTitle,
+          })
+          .select("id")
+          .single();
+        if (videoErr)
+          console.error("[generate] vsg_videos insert failed:", videoErr);
+        videoId = video?.id ?? null;
+      } catch (e) {
+        console.error("[generate] vsg_videos insert threw:", e);
+      }
+    }
+
     return ok({
       ...result,
       raw: text,
       generation_id: gen?.id ?? null,
+      video_id: videoId,
       used_pattern: !!pattern,
     });
   } catch (e) {

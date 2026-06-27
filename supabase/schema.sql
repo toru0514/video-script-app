@@ -74,3 +74,30 @@ where not exists (select 1 from public.vsg_narrators);
 insert into public.vsg_narrators (name, description, sort_order)
 select 'ナレーターB', 'テンポの速い元気な語り口', 2
 where (select count(*) from public.vsg_narrators) = 1;
+
+-- ============================================================
+-- vsg_videos（動画管理＝TODO）
+-- ============================================================
+create table if not exists public.vsg_videos (
+  id               uuid primary key default gen_random_uuid(),
+  generation_id    uuid references public.vsg_generations(id) on delete set null,
+  narrator_id      uuid references public.vsg_narrators(id) on delete set null,
+  -- vsg_products は本番DBにのみ存在する既存テーブル（意図的なスキーマdrift）。
+  -- このファイルには定義しないため、schema.sql をゼロから実行するには
+  -- 事前に vsg_products が存在している必要がある（バグではない）。
+  product_id       uuid references public.vsg_products(id) on delete set null,
+  title            text not null,
+  narration_status text not null default 'not_requested'
+                   check (narration_status in ('not_requested','recording','done')),
+  video_status     text not null default 'not_requested'
+                   check (video_status in ('not_requested','rendering','done')),
+  publish_status   text not null default 'unpublished'
+                   check (publish_status in ('unpublished','published')),
+  note             text,
+  created_at       timestamptz not null default now(),
+  -- updated_at はAPI層（PATCHハンドラ）で更新する。DBトリガーは無い。
+  updated_at       timestamptz not null default now()
+);
+
+create index if not exists idx_vsg_videos_publish_status on public.vsg_videos(publish_status);
+create index if not exists idx_vsg_videos_created_at on public.vsg_videos(created_at);

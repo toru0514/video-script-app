@@ -3,299 +3,184 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Narrator, Product, GenerateResult } from "@/lib/types";
-import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
+import type { Narrator, Product, Video } from "@/lib/types";
+import { Card, ErrorBox, Spinner } from "@/components/ui";
+import { StatusSelect } from "@/components/StatusSelect";
+import {
+  NARRATION_OPTIONS,
+  VIDEO_OPTIONS,
+  PUBLISH_OPTIONS,
+  isUntouched,
+} from "@/lib/videoStatus";
 
-type GenResponse = GenerateResult & {
-  raw: string;
-  generation_id: string | null;
-  used_pattern: boolean;
-};
-
-export default function GeneratePage() {
+export default function VideosPage() {
+  const [videos, setVideos] = useState<Video[]>([]);
   const [narrators, setNarrators] = useState<Narrator[]>([]);
-  const [narratorId, setNarratorId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [productId, setProductId] = useState("");
-  const [mode, setMode] = useState<"input" | "suggest">("input");
-  const [theme, setTheme] = useState("");
-
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [suggesting, setSuggesting] = useState(false);
-
-  const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<GenResponse | null>(null);
+  const [showPublished, setShowPublished] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await api.get<Video[]>("/api/videos");
+      setVideos(data);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    api
-      .get<Narrator[]>("/api/narrators")
-      .then((ns) => {
-        setNarrators(ns);
-        if (ns.length) setNarratorId(ns[0].id);
-      })
-      .catch((e) => setError(e.message));
-    api
-      .get<Product[]>("/api/products")
-      .then(setProducts)
-      .catch(() => {});
+    load();
+    api.get<Narrator[]>("/api/narrators?all=1").then(setNarrators).catch(() => {});
+    api.get<Product[]>("/api/products?all=1").then(setProducts).catch(() => {});
   }, []);
 
-  const selected = narrators.find((n) => n.id === narratorId);
-  const selectedProduct = products.find((p) => p.id === productId);
-
-  async function suggestThemes() {
-    setError(null);
-    setSuggesting(true);
-    setSuggestions([]);
+  async function updateStatus(v: Video, patch: Partial<Video>) {
+    setVideos((prev) =>
+      prev.map((x) => (x.id === v.id ? { ...x, ...patch } : x)),
+    );
     try {
-      const r = await api.post<{ themes: string[] }>("/api/themes/suggest", {
-        narrator_id: narratorId,
-        product_id: productId || undefined,
-      });
-      setSuggestions(r.themes);
+      await api.patch("/api/videos", { id: v.id, ...patch });
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setSuggesting(false);
+      await load();
     }
   }
 
-  async function generate() {
-    if (!narratorId || (!theme.trim() && !productId)) return;
-    setError(null);
-    setGenerating(true);
-    setResult(null);
-    try {
-      const r = await api.post<GenResponse>("/api/generate", {
-        narrator_id: narratorId,
-        theme: theme.trim(),
-        product_id: productId || undefined,
-      });
-      setResult(r);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setGenerating(false);
-    }
-  }
+  const narratorName = (id: string | null) =>
+    narrators.find((n) => n.id === id)?.name ?? null;
+  const productName = (id: string | null) =>
+    products.find((p) => p.id === id)?.name ?? null;
+
+  const active = videos.filter((v) => v.publish_status !== "published");
+  const published = videos.filter((v) => v.publish_status === "published");
 
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-bold">台本を生成</h1>
-
-      {narrators.length === 0 && (
-        <Card className="p-4 text-sm text-neutral-600">
-          ナレーターがいません。
-          <Link href="/settings" className="text-blue-600 underline ml-1">
-            設定
-          </Link>
-          から追加し、
-          <Link href="/scripts" className="text-blue-600 underline mx-1">
-            お手本
-          </Link>
-          を登録してください。
-        </Card>
-      )}
-
-      {/* ナレーター選択 */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">ナレーター</label>
-        <select
-          value={narratorId}
-          onChange={(e) => {
-            setNarratorId(e.target.value);
-            setSuggestions([]);
-            setResult(null);
-          }}
-          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold">動画</h1>
+        <Link
+          href="/generate"
+          className="text-sm px-3 py-1.5 rounded-full bg-neutral-900 text-white"
         >
-          {narrators.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name}
-            </option>
-          ))}
-        </select>
-        {selected?.description && (
-          <p className="text-xs text-neutral-500">{selected.description}</p>
-        )}
+          ＋ 生成して追加
+        </Link>
       </div>
-
-      {/* 商品選択 */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          商品{" "}
-          <span className="text-neutral-400 font-normal">（任意・選ぶとその商品に絞って生成）</span>
-        </label>
-        <select
-          value={productId}
-          onChange={(e) => {
-            setProductId(e.target.value);
-            setSuggestions([]);
-          }}
-          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
-        >
-          <option value="">指定なし（自由なテーマ）</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        {selectedProduct?.description && (
-          <p className="text-xs text-neutral-500 whitespace-pre-wrap">
-            {selectedProduct.description}
-          </p>
-        )}
-        {products.length === 0 && (
-          <p className="text-xs text-neutral-400">
-            商品は
-            <Link href="/settings" className="underline mx-1">
-              設定
-            </Link>
-            で登録できます。
-          </p>
-        )}
-      </div>
-
-      {/* テーマの決め方 */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          テーマ・切り口
-          {productId && (
-            <span className="text-neutral-400 font-normal">
-              {" "}（商品選択中は任意。空なら商品全体の紹介に）
-            </span>
-          )}
-        </label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMode("input")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
-              mode === "input"
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : "bg-white text-neutral-600 border-neutral-300"
-            }`}
-          >
-            自分で入力
-          </button>
-          <button
-            onClick={() => setMode("suggest")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
-              mode === "suggest"
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : "bg-white text-neutral-600 border-neutral-300"
-            }`}
-          >
-            提案してもらう
-          </button>
-        </div>
-
-        {mode === "suggest" && (
-          <div className="space-y-2">
-            <Button
-              variant="secondary"
-              onClick={suggestThemes}
-              disabled={!narratorId || suggesting}
-              className="w-full"
-            >
-              {suggesting ? <Spinner label="提案中…" /> : "テーマ候補を出す"}
-            </Button>
-            {suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setTheme(s)}
-                    className={`px-3 py-1.5 rounded-full text-sm border ${
-                      theme === s
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white border-neutral-300 hover:bg-neutral-50"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <textarea
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          placeholder="例：知らないと損する電子レンジの裏ワザ"
-          rows={2}
-          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base resize-y"
-        />
-      </div>
-
-      <Button
-        onClick={generate}
-        disabled={!narratorId || (!theme.trim() && !productId) || generating}
-        className="w-full py-3 text-base"
-      >
-        {generating ? <Spinner label="生成中…" /> : "✨ 生成する"}
-      </Button>
 
       <ErrorBox message={error} />
 
-      {/* 結果 */}
-      {result && (
-        <div className="space-y-4">
-          {!result.used_pattern && (
-            <p className="text-xs text-amber-600">
-              ※ 型が未抽出のため過去データ全件から生成しました。
-              <Link href="/patterns" className="underline ml-1">
-                型を抽出
-              </Link>
-              するとトークン節約＆一貫性が上がります。
-            </p>
+      {loading ? (
+        <Spinner label="読み込み中…" />
+      ) : videos.length === 0 ? (
+        <p className="text-sm text-neutral-500">
+          まだ動画がありません。
+          <Link href="/generate" className="text-blue-600 underline ml-1">
+            生成
+          </Link>
+          すると未着手の動画として追加されます。
+        </p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {active.length === 0 ? (
+              <p className="text-sm text-neutral-500">進行中の動画はありません。</p>
+            ) : (
+              active.map((v) => (
+                <VideoCard
+                  key={v.id}
+                  v={v}
+                  narratorName={narratorName(v.narrator_id)}
+                  productName={productName(v.product_id)}
+                  onChange={updateStatus}
+                />
+              ))
+            )}
+          </div>
+
+          {published.length > 0 && (
+            <div className="pt-2">
+              <button
+                onClick={() => setShowPublished((s) => !s)}
+                className="text-sm text-neutral-500 flex items-center gap-1"
+              >
+                {showPublished ? "▼" : "▶"} 公開済み（{published.length}）
+              </button>
+              {showPublished && (
+                <div className="space-y-3 mt-3 opacity-80">
+                  {published.map((v) => (
+                    <VideoCard
+                      key={v.id}
+                      v={v}
+                      narratorName={narratorName(v.narrator_id)}
+                      productName={productName(v.product_id)}
+                      onChange={updateStatus}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-
-          <ResultBlock title="タイトル" copyText={result.titles.join("\n")}>
-            <ol className="list-decimal list-inside space-y-1">
-              {result.titles.map((t, i) => (
-                <li key={i} className="text-[15px]">
-                  {t}
-                </li>
-              ))}
-            </ol>
-          </ResultBlock>
-
-          <ResultBlock title="台本" copyText={result.script}>
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
-              {result.script}
-            </p>
-          </ResultBlock>
-
-          <ResultBlock title="ストーリー（Flow用）" copyText={result.story}>
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
-              {result.story}
-            </p>
-          </ResultBlock>
-        </div>
+        </>
       )}
     </div>
   );
 }
 
-function ResultBlock({
-  title,
-  copyText,
-  children,
+function VideoCard({
+  v,
+  narratorName,
+  productName,
+  onChange,
 }: {
-  title: string;
-  copyText: string;
-  children: React.ReactNode;
+  v: Video;
+  narratorName: string | null;
+  productName: string | null;
+  onChange: (v: Video, patch: Partial<Video>) => void;
 }) {
   return (
-    <Card className="p-4 space-y-2">
-      <div className="flex items-center justify-between">
-        <h2 className="font-bold text-sm">{title}</h2>
-        <CopyButton text={copyText} />
+    <Card className="p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <Link href={`/videos/${v.id}`} className="font-medium hover:underline">
+            {v.title}
+          </Link>
+          <div className="text-xs text-neutral-500">
+            {[narratorName, productName].filter(Boolean).join(" ・ ")}
+            {(narratorName || productName) && " ・ "}
+            {new Date(v.created_at).toLocaleDateString("ja-JP")}
+          </div>
+        </div>
+        {isUntouched(v) && (
+          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-600">
+            未着手
+          </span>
+        )}
       </div>
-      <div>{children}</div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <StatusSelect
+          label="ナレーション"
+          value={v.narration_status}
+          options={NARRATION_OPTIONS}
+          onChange={(val) => onChange(v, { narration_status: val })}
+        />
+        <StatusSelect
+          label="動画生成"
+          value={v.video_status}
+          options={VIDEO_OPTIONS}
+          onChange={(val) => onChange(v, { video_status: val })}
+        />
+        <StatusSelect
+          label="公開"
+          value={v.publish_status}
+          options={PUBLISH_OPTIONS}
+          onChange={(val) => onChange(v, { publish_status: val })}
+        />
+      </div>
     </Card>
   );
 }
