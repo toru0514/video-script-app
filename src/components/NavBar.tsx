@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/", label: "生成" },
+  { href: "/", label: "動画" },
+  { href: "/generate", label: "生成" },
   { href: "/scripts", label: "お手本" },
   { href: "/patterns", label: "型" },
   { href: "/history", label: "履歴" },
@@ -18,7 +19,7 @@ export function NavBar() {
       <div className="max-w-3xl mx-auto px-4">
         <div className="flex items-center justify-between h-12">
           <Link href="/" className="font-bold text-sm shrink-0">
-            🎬 台本ジェネレーター
+            🎬 動画マネージャー
           </Link>
         </div>
         <nav className="flex gap-1 overflow-x-auto -mx-1 pb-2">
