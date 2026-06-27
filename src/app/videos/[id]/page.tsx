@@ -55,8 +55,12 @@ export default function VideoDetailPage() {
   async function remove() {
     if (!video) return;
     if (!confirm("この動画を削除しますか？")) return;
-    await api.del(`/api/videos?id=${video.id}`);
-    router.push("/");
+    try {
+      await api.del(`/api/videos?id=${video.id}`);
+      router.push("/");
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   if (loading) return <Spinner label="読み込み中…" />;
