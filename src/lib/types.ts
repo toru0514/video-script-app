@@ -62,6 +62,7 @@ export type PublishStatus = "unpublished" | "published";
 export type Video = {
   id: string;
   generation_id: string | null;
+  script_id: string | null;
   narrator_id: string | null;
   product_id: string | null;
   title: string;
