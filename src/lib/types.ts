@@ -2,6 +2,7 @@ export type Narrator = {
   id: string;
   name: string;
   description: string | null;
+  password: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -80,4 +81,21 @@ export type VideoDetail = Video & {
     output_script: string | null;
     output_story: string | null;
   } | null;
+};
+
+// ナレーター向けページで表示する 1 件分（未収録動画＋台本/ストーリー）
+export type NarratorTask = {
+  id: string;
+  title: string;
+  narration_status: NarrationStatus;
+  created_at: string;
+  output_titles: string | null;
+  output_script: string | null;
+  output_story: string | null;
+};
+
+export type NarratorTasksResponse = {
+  role?: "admin" | "narrator";
+  narrator: { id: string; name: string } | null;
+  tasks: NarratorTask[];
 };

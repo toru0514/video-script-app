@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       .insert({
         name: body.name.trim(),
         description: body.description?.trim() || null,
+        password: body.password?.trim() || null,
         sort_order: sortOrder,
       })
       .select()
@@ -58,6 +59,8 @@ export async function PATCH(req: Request) {
     if (body.name !== undefined) patch.name = String(body.name).trim();
     if (body.description !== undefined)
       patch.description = body.description?.trim() || null;
+    if (body.password !== undefined)
+      patch.password = body.password?.trim() || null;
     if (body.sort_order !== undefined) patch.sort_order = body.sort_order;
     if (body.is_active !== undefined) patch.is_active = body.is_active;
     const sb = getSupabase();

@@ -13,6 +13,7 @@ export default function SettingsPage() {
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newPass, setNewPass] = useState("");
   const [adding, setAdding] = useState(false);
 
   async function load() {
@@ -39,9 +40,11 @@ export default function SettingsPage() {
       await api.post("/api/narrators", {
         name: newName.trim(),
         description: newDesc.trim() || undefined,
+        password: newPass.trim() || undefined,
       });
       setNewName("");
       setNewDesc("");
+      setNewPass("");
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -106,6 +109,12 @@ export default function SettingsPage() {
           placeholder="雰囲気メモ（任意）"
           className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
         />
+        <input
+          value={newPass}
+          onChange={(e) => setNewPass(e.target.value)}
+          placeholder="ログインパスワード（ナレーター本人用・任意）"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
+        />
         <Button onClick={add} disabled={!newName.trim() || adding}>
           {adding ? <Spinner label="追加中…" /> : "追加"}
         </Button>
@@ -154,6 +163,7 @@ function NarratorRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(n.name);
   const [desc, setDesc] = useState(n.description ?? "");
+  const [pass, setPass] = useState(n.password ?? "");
 
   return (
     <Card className={`p-4 space-y-2 ${!n.is_active ? "opacity-60" : ""}`}>
@@ -170,10 +180,16 @@ function NarratorRow({
             placeholder="雰囲気メモ"
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
           />
+          <input
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            placeholder="ログインパスワード（ナレーター本人用）"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
+          />
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                onUpdate(n.id, { name, description: desc });
+                onUpdate(n.id, { name, description: desc, password: pass });
                 setEditing(false);
               }}
             >
@@ -199,6 +215,14 @@ function NarratorRow({
               {n.description && (
                 <p className="text-sm text-neutral-500">{n.description}</p>
               )}
+              <p className="text-xs text-neutral-400 mt-0.5">
+                ログインPW：
+                {n.password ? (
+                  <code className="text-neutral-600">{n.password}</code>
+                ) : (
+                  <span className="text-amber-600">未設定（ログイン不可）</span>
+                )}
+              </p>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
               <button

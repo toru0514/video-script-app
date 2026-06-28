@@ -12,10 +12,15 @@ create table if not exists public.vsg_narrators (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
   description text,
+  password    text,  -- ナレーター本人用ログインパスワード（/narrator）
   sort_order  int not null default 0,
   is_active   boolean not null default true,
   created_at  timestamptz not null default now()
 );
+-- 既存テーブルへの後付け（再実行時の安全策）
+alter table public.vsg_narrators add column if not exists password text;
+create unique index if not exists vsg_narrators_password_key
+  on public.vsg_narrators (password) where password is not null;
 
 -- ============================================================
 -- vsg_scripts（過去動画＝お手本）

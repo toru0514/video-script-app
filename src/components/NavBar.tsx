@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 const links = [
   { href: "/", label: "動画" },
@@ -9,11 +10,26 @@ const links = [
   { href: "/scripts", label: "お手本" },
   { href: "/patterns", label: "型" },
   { href: "/history", label: "履歴" },
+  { href: "/narrator", label: "ナレーター" },
   { href: "/settings", label: "設定" },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // ログイン画面とナレーター向けページでは管理ナビを出さない
+  if (pathname === "/login" || pathname.startsWith("/narrator")) return null;
+
+  async function logout() {
+    try {
+      await api.del("/api/login");
+    } catch {
+      /* noop */
+    }
+    router.replace("/login");
+  }
+
   return (
     <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-neutral-200">
       <div className="max-w-3xl mx-auto px-4">
@@ -21,6 +37,12 @@ export function NavBar() {
           <Link href="/" className="font-bold text-sm shrink-0">
             🎬 動画マネージャー
           </Link>
+          <button
+            onClick={logout}
+            className="text-xs text-neutral-500 hover:text-neutral-800"
+          >
+            ログアウト
+          </button>
         </div>
         <nav className="flex gap-1 overflow-x-auto -mx-1 pb-2">
           {links.map((l) => {
