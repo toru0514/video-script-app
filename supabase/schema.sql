@@ -81,6 +81,8 @@ where (select count(*) from public.vsg_narrators) = 1;
 create table if not exists public.vsg_videos (
   id               uuid primary key default gen_random_uuid(),
   generation_id    uuid references public.vsg_generations(id) on delete set null,
+  -- script_id: お手本(vsg_scripts)から取り込んだ動画の参照元。生成由来なら null。
+  script_id        uuid references public.vsg_scripts(id) on delete set null,
   narrator_id      uuid references public.vsg_narrators(id) on delete set null,
   -- vsg_products は本番DBにのみ存在する既存テーブル（意図的なスキーマdrift）。
   -- このファイルには定義しないため、schema.sql をゼロから実行するには
@@ -101,3 +103,4 @@ create table if not exists public.vsg_videos (
 
 create index if not exists idx_vsg_videos_publish_status on public.vsg_videos(publish_status);
 create index if not exists idx_vsg_videos_created_at on public.vsg_videos(created_at);
+create index if not exists idx_vsg_videos_script_id on public.vsg_videos(script_id);

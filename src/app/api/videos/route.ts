@@ -23,6 +23,8 @@ export async function GET(req: Request) {
       if (error) return fail(error.message, 500);
       if (!video) return fail("動画が見つかりません", 404);
 
+      // 生成元(generation)があればそれを、無ければお手本(script)を
+      // 同じ {output_titles, output_script, output_story} 形に揃えて返す。
       let generation = null;
       if (video.generation_id) {
         const { data } = await sb
@@ -31,6 +33,19 @@ export async function GET(req: Request) {
           .eq("id", video.generation_id)
           .maybeSingle();
         generation = data ?? null;
+      } else if (video.script_id) {
+        const { data: script } = await sb
+          .from(T.scripts)
+          .select("title, script, story")
+          .eq("id", video.script_id)
+          .maybeSingle<{ title: string; script: string; story: string }>();
+        if (script) {
+          generation = {
+            output_titles: script.title,
+            output_script: script.script,
+            output_story: script.story,
+          };
+        }
       }
       return ok({ ...video, generation });
     }
