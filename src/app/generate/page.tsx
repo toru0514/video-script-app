@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import type { Narrator, Product, GenerateResult } from "@/lib/types";
 import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
+import { useRole } from "@/components/RoleProvider";
 
 type GenResponse = GenerateResult & {
   raw: string;
@@ -28,6 +29,7 @@ export default function GeneratePage() {
   const [result, setResult] = useState<GenResponse | null>(null);
   const [chosenTitle, setChosenTitle] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const guest = useRole() === "guest";
 
   useEffect(() => {
     api
@@ -97,6 +99,16 @@ export default function GeneratePage() {
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-bold">台本を生成</h1>
+
+      {guest && (
+        <Card className="p-4 text-sm bg-amber-50 border-amber-200 text-amber-800">
+          サンプル表示中のため、AIによる生成・テーマ提案はできません。
+          <Link href="/login" className="underline ml-1">
+            ログイン
+          </Link>
+          すると利用できます。
+        </Card>
+      )}
 
       {narrators.length === 0 && (
         <Card className="p-4 text-sm text-neutral-600">
@@ -210,7 +222,7 @@ export default function GeneratePage() {
             <Button
               variant="secondary"
               onClick={suggestThemes}
-              disabled={!narratorId || suggesting}
+              disabled={!narratorId || suggesting || guest}
               className="w-full"
             >
               {suggesting ? <Spinner label="提案中…" /> : "テーマ候補を出す"}
@@ -246,7 +258,7 @@ export default function GeneratePage() {
 
       <Button
         onClick={generate}
-        disabled={!narratorId || (!theme.trim() && !productId) || generating}
+        disabled={!narratorId || (!theme.trim() && !productId) || generating || guest}
         className="w-full py-3 text-base"
       >
         {generating ? <Spinner label="生成中…" /> : "✨ 生成する"}

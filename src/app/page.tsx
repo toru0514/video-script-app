@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Narrator, Product, Video } from "@/lib/types";
 import { Card, ErrorBox, Spinner } from "@/components/ui";
 import { StatusSelect } from "@/components/StatusSelect";
+import { useRole } from "@/components/RoleProvider";
 import {
   NARRATION_OPTIONS,
   VIDEO_OPTIONS,
@@ -20,6 +21,7 @@ export default function VideosPage() {
   const [showPublished, setShowPublished] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const guest = useRole() === "guest";
 
   async function load() {
     setLoading(true);
@@ -96,6 +98,7 @@ export default function VideosPage() {
                   narratorName={narratorName(v.narrator_id)}
                   productName={productName(v.product_id)}
                   onChange={updateStatus}
+                  disabled={guest}
                 />
               ))
             )}
@@ -118,6 +121,7 @@ export default function VideosPage() {
                       narratorName={narratorName(v.narrator_id)}
                       productName={productName(v.product_id)}
                       onChange={updateStatus}
+                      disabled={guest}
                     />
                   ))}
                 </div>
@@ -135,11 +139,13 @@ function VideoCard({
   narratorName,
   productName,
   onChange,
+  disabled = false,
 }: {
   v: Video;
   narratorName: string | null;
   productName: string | null;
   onChange: (v: Video, patch: Partial<Video>) => void;
+  disabled?: boolean;
 }) {
   return (
     <Card className="p-4 space-y-3">
@@ -167,18 +173,21 @@ function VideoCard({
           value={v.narration_status}
           options={NARRATION_OPTIONS}
           onChange={(val) => onChange(v, { narration_status: val })}
+          disabled={disabled}
         />
         <StatusSelect
           label="動画生成"
           value={v.video_status}
           options={VIDEO_OPTIONS}
           onChange={(val) => onChange(v, { video_status: val })}
+          disabled={disabled}
         />
         <StatusSelect
           label="公開"
           value={v.publish_status}
           options={PUBLISH_OPTIONS}
           onChange={(val) => onChange(v, { publish_status: val })}
+          disabled={disabled}
         />
       </div>
     </Card>

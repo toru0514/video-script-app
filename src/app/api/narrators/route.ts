@@ -1,9 +1,14 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
+import { getAuth } from "@/lib/auth";
+import { SAMPLE_NARRATORS } from "@/lib/sampleData";
 
 // GET /api/narrators?all=1   有効なナレーター一覧（all=1で無効も含む）
 export async function GET(req: Request) {
   try {
+    const { role } = await getAuth();
+    if (role !== "admin") return ok(SAMPLE_NARRATORS);
+
     const includeAll = new URL(req.url).searchParams.get("all") === "1";
     const sb = getSupabase();
     let query = sb.from(T.narrators).select("*").order("sort_order", { ascending: true });

@@ -1,9 +1,14 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
+import { getAuth } from "@/lib/auth";
+import { SAMPLE_PRODUCTS } from "@/lib/sampleData";
 
 // GET /api/products?all=1   有効な商品一覧（all=1で無効も含む）
 export async function GET(req: Request) {
   try {
+    const { role } = await getAuth();
+    if (role !== "admin") return ok(SAMPLE_PRODUCTS);
+
     const includeAll = new URL(req.url).searchParams.get("all") === "1";
     const sb = getSupabase();
     let query = sb

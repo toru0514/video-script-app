@@ -1,5 +1,7 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
+import { getAuth } from "@/lib/auth";
+import { SAMPLE_VIDEOS, sampleVideoDetail } from "@/lib/sampleData";
 import type { Video } from "@/lib/types";
 import {
   NARRATION_VALUES,
@@ -12,6 +14,13 @@ import {
 export async function GET(req: Request) {
   try {
     const id = new URL(req.url).searchParams.get("id");
+
+    // ゲスト（管理者以外）にはサンプルデータのみ返す
+    const { role } = await getAuth();
+    if (role !== "admin") {
+      return ok(id ? sampleVideoDetail(id) : SAMPLE_VIDEOS);
+    }
+
     const sb = getSupabase();
 
     if (id) {

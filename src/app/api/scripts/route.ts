@@ -1,10 +1,22 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
+import { getAuth } from "@/lib/auth";
+import { SAMPLE_SCRIPTS } from "@/lib/sampleData";
 
 // GET /api/scripts?narrator_id=...   お手本一覧（narrator_id で絞り込み可）
 export async function GET(req: Request) {
   try {
     const narratorId = new URL(req.url).searchParams.get("narrator_id");
+
+    const { role } = await getAuth();
+    if (role !== "admin") {
+      return ok(
+        narratorId
+          ? SAMPLE_SCRIPTS.filter((s) => s.narrator_id === narratorId)
+          : SAMPLE_SCRIPTS,
+      );
+    }
+
     const sb = getSupabase();
     let query = sb
       .from(T.scripts)

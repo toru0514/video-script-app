@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useRole } from "@/components/RoleProvider";
 
 const links = [
   { href: "/", label: "動画" },
@@ -17,6 +18,7 @@ const links = [
 export function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const role = useRole();
 
   // ログイン画面とナレーター向けページでは管理ナビを出さない
   if (pathname === "/login" || pathname.startsWith("/narrator")) return null;
@@ -37,12 +39,21 @@ export function NavBar() {
           <Link href="/" className="font-bold text-sm shrink-0">
             🎬 動画マネージャー
           </Link>
-          <button
-            onClick={logout}
-            className="text-xs text-neutral-500 hover:text-neutral-800"
-          >
-            ログアウト
-          </button>
+          {role === "guest" ? (
+            <Link
+              href="/login"
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              ログイン
+            </Link>
+          ) : (
+            <button
+              onClick={logout}
+              className="text-xs text-neutral-500 hover:text-neutral-800"
+            >
+              ログアウト
+            </button>
+          )}
         </div>
         <nav className="flex gap-1 overflow-x-auto -mx-1 pb-2">
           {links.map((l) => {

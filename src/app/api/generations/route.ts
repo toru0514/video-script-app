@@ -1,5 +1,7 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
+import { getAuth } from "@/lib/auth";
+import { SAMPLE_GENERATIONS } from "@/lib/sampleData";
 
 // GET /api/generations?narrator_id=...&favorite=1   生成履歴
 export async function GET(req: Request) {
@@ -7,6 +9,15 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const narratorId = url.searchParams.get("narrator_id");
     const favOnly = url.searchParams.get("favorite") === "1";
+
+    const { role } = await getAuth();
+    if (role !== "admin") {
+      let s = SAMPLE_GENERATIONS;
+      if (narratorId) s = s.filter((g) => g.narrator_id === narratorId);
+      if (favOnly) s = s.filter((g) => g.is_favorite);
+      return ok(s);
+    }
+
     const sb = getSupabase();
     let query = sb
       .from(T.generations)
