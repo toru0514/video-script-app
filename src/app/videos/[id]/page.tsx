@@ -137,6 +137,23 @@ export default function VideoDetailPage() {
         <DetailBlock title="ストーリー（Flow用）" text={video.generation.output_story} />
       )}
 
+      {(video.generation?.output_post_x ||
+        video.generation?.output_post_tiktok ||
+        video.generation?.output_post_instagram) && (
+        <Card className="p-4 space-y-3">
+          <h2 className="font-bold text-sm">SNS投稿文</h2>
+          {video.generation?.output_post_x && (
+            <SnsRow label="X（旧Twitter）" text={video.generation.output_post_x} />
+          )}
+          {video.generation?.output_post_tiktok && (
+            <SnsRow label="TikTok" text={video.generation.output_post_tiktok} />
+          )}
+          {video.generation?.output_post_instagram && (
+            <SnsRow label="Instagram" text={video.generation.output_post_instagram} />
+          )}
+        </Card>
+      )}
+
       <Card className="p-4 space-y-2">
         <h2 className="font-bold text-sm">メモ</h2>
         <textarea
@@ -152,6 +169,20 @@ export default function VideoDetailPage() {
       <Button variant="danger" onClick={remove} className="w-full">
         この動画を削除
       </Button>
+    </div>
+  );
+}
+
+function SnsRow({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="space-y-1 border-t border-neutral-100 pt-2 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-bold text-neutral-500">{label}</div>
+        <CopyButton text={text} />
+      </div>
+      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700">
+        {text}
+      </p>
     </div>
   );
 }

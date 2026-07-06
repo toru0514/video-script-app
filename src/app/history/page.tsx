@@ -109,6 +109,12 @@ export default function HistoryPage() {
                   <HistoryBlock title="タイトル" text={g.output_titles} />
                   <HistoryBlock title="台本" text={g.output_script} />
                   <HistoryBlock title="ストーリー" text={g.output_story} />
+                  <HistoryBlock title="X用投稿文" text={g.output_post_x} />
+                  <HistoryBlock title="TikTok用投稿文" text={g.output_post_tiktok} />
+                  <HistoryBlock
+                    title="Instagram用投稿文"
+                    text={g.output_post_instagram}
+                  />
                 </div>
               </details>
             </Card>

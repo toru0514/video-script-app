@@ -38,7 +38,9 @@ export async function GET(req: Request) {
       if (video.generation_id) {
         const { data } = await sb
           .from(T.generations)
-          .select("output_titles, output_script, output_story")
+          .select(
+            "output_titles, output_script, output_story, output_post_x, output_post_tiktok, output_post_instagram",
+          )
           .eq("id", video.generation_id)
           .maybeSingle();
         generation = data ?? null;
@@ -49,10 +51,14 @@ export async function GET(req: Request) {
           .eq("id", video.script_id)
           .maybeSingle<{ title: string; script: string; story: string }>();
         if (script) {
+          // お手本(vsg_scripts)由来の動画にはSNS投稿文は無いため null で揃える
           generation = {
             output_titles: script.title,
             output_script: script.script,
             output_story: script.story,
+            output_post_x: null,
+            output_post_tiktok: null,
+            output_post_instagram: null,
           };
         }
       }

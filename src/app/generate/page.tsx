@@ -322,8 +322,31 @@ export default function GeneratePage() {
               {result.story}
             </p>
           </ResultBlock>
+
+          {(result.sns?.x || result.sns?.tiktok || result.sns?.instagram) && (
+            <Card className="p-4 space-y-3">
+              <h2 className="font-bold text-sm">SNS投稿文</h2>
+              {result.sns?.x && <SnsRow label="X（旧Twitter）" text={result.sns.x} />}
+              {result.sns?.tiktok && <SnsRow label="TikTok" text={result.sns.tiktok} />}
+              {result.sns?.instagram && (
+                <SnsRow label="Instagram" text={result.sns.instagram} />
+              )}
+            </Card>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function SnsRow({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="space-y-1 border-t border-neutral-100 pt-2 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-bold text-neutral-500">{label}</div>
+        <CopyButton text={text} />
+      </div>
+      <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{text}</p>
     </div>
   );
 }

@@ -161,6 +161,7 @@ ${productBlock(product)}
 ナレーター「${name}」らしさ（口調・トーン）は保ちつつ、内容と言葉は${themeLine}に即した新鮮なものにしてください。
 日本語のニュアンス・テンポを重視してください。
 ${lengthRule}
+また、この動画をSNSで告知・拡散するための投稿文を、X・TikTok・Instagramの3媒体ぶん作ってください。核となる訴求（伝えたい魅力）は3媒体で共通でかまいませんが、文字数やハッシュタグの量は各媒体の慣習に合わせて調整してください。ナレーションの読み上げ台本とは別に、読み手（視聴者）が読む告知文として書いてください。
 必ず下記のフォーマット（見出しは固定）で出力してください。
 
 # タイトル
@@ -170,7 +171,16 @@ ${lengthRule}
 （ナレーションが読み上げる本文。上記の長さ制約を必ず守る）
 
 # ストーリー
-（Flow等のAI動画生成に渡す、映像の流れ・シーン構成の説明。シーンごとに分かる粒度で）`;
+（Flow等のAI動画生成に渡す、映像の流れ・シーン構成の説明。シーンごとに分かる粒度で）
+
+# X用投稿文
+（この動画を告知・拡散するためのX（旧Twitter）向け投稿文。全角140字程度で簡潔に。フックのある1〜2文に、関連ハッシュタグを1〜2個添える。改行は最小限）
+
+# TikTok用投稿文
+（TikTok動画に添えるキャプション。短いフックの1文に、トレンドを意識したハッシュタグを3〜5個。絵文字も自然に交ぜてよい）
+
+# Instagram用投稿文
+（Instagram向けキャプション。2〜4行で${themeLine}の魅力を伝え、最後にハッシュタグを5〜8個並べる。絵文字を使ってよい）`;
 }
 
 // 生成結果を3ブロックに分解
@@ -178,6 +188,16 @@ export function parseGeneration(text: string): GenerateResult {
   const titleBlock = sliceSection(text, "タイトル");
   const script = sliceSection(text, "台本");
   const story = sliceSection(text, "ストーリー");
+
+  // SNS投稿文（各媒体）。見出しの表記ゆれに備えて複数キーワードで拾う。
+  const snsX = sliceSection(text, "X用投稿", "Xポスト", "X（旧Twitter）");
+  const snsTiktok = sliceSection(text, "TikTok用投稿", "TikTok", "ティックトック");
+  const snsInstagram = sliceSection(
+    text,
+    "Instagram用投稿",
+    "Instagram",
+    "インスタ",
+  );
 
   const titles = titleBlock
     .split("\n")
@@ -193,6 +213,11 @@ export function parseGeneration(text: string): GenerateResult {
     titles: titles.length ? titles : titleBlock ? [titleBlock] : [],
     script,
     story,
+    sns: {
+      x: snsX,
+      tiktok: snsTiktok,
+      instagram: snsInstagram,
+    },
   };
 }
 

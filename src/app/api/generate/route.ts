@@ -101,6 +101,9 @@ export async function POST(req: Request) {
         output_titles: result.titles.join("\n"),
         output_script: result.script,
         output_story: result.story,
+        output_post_x: result.sns.x || null,
+        output_post_tiktok: result.sns.tiktok || null,
+        output_post_instagram: result.sns.instagram || null,
       })
       .select()
       .single();

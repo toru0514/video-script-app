@@ -46,14 +46,25 @@ export type Generation = {
   output_titles: string | null;
   output_script: string | null;
   output_story: string | null;
+  output_post_x: string | null;
+  output_post_tiktok: string | null;
+  output_post_instagram: string | null;
   is_favorite: boolean;
   created_at: string;
+};
+
+// SNS投稿用の文章（各プラットフォーム向け）
+export type SnsPosts = {
+  x: string;
+  tiktok: string;
+  instagram: string;
 };
 
 export type GenerateResult = {
   titles: string[];
   script: string;
   story: string;
+  sns: SnsPosts;
 };
 
 export type NarrationStatus = "not_requested" | "recording" | "done";
@@ -80,6 +91,9 @@ export type VideoDetail = Video & {
     output_titles: string | null;
     output_script: string | null;
     output_story: string | null;
+    output_post_x: string | null;
+    output_post_tiktok: string | null;
+    output_post_instagram: string | null;
   } | null;
 };
 

@@ -63,9 +63,18 @@ create table if not exists public.vsg_generations (
   output_titles text,
   output_script text,
   output_story  text,
+  -- SNS投稿用の文章（媒体別）
+  output_post_x         text,
+  output_post_tiktok    text,
+  output_post_instagram text,
   is_favorite   boolean not null default false,
   created_at    timestamptz not null default now()
 );
+
+-- 既存テーブルへの後付け（再実行時の安全策）
+alter table public.vsg_generations add column if not exists output_post_x text;
+alter table public.vsg_generations add column if not exists output_post_tiktok text;
+alter table public.vsg_generations add column if not exists output_post_instagram text;
 
 create index if not exists idx_vsg_generations_narrator_id on public.vsg_generations(narrator_id);
 

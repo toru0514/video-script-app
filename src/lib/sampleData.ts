@@ -112,13 +112,26 @@ export const SAMPLE_VIDEOS: Video[] = [
 
 const SAMPLE_GEN_CONTENT: Record<
   string,
-  { output_titles: string; output_script: string; output_story: string }
+  {
+    output_titles: string;
+    output_script: string;
+    output_story: string;
+    output_post_x: string;
+    output_post_tiktok: string;
+    output_post_instagram: string;
+  }
 > = {
   "sample-gen-1": {
     output_titles:
       "指先に宿る、木のやすらぎ\n木の指輪（肌に溶け込む安らぎ）\n贈り物に選ばれる、木の指輪",
     output_script: SAMPLE_SCRIPT_TEXT,
     output_story: SAMPLE_STORY_TEXT,
+    output_post_x:
+      "金属じゃない、木の指輪。つけていることを忘れる軽さです。世界にひとつだけの一本を指先に。 #木の指輪 #ハンドメイド",
+    output_post_tiktok:
+      "つけてるの忘れる軽さ🌿 世界にひとつだけの木の指輪です✨ #木の指輪 #ハンドメイド #木工 #ギフト #おすすめ",
+    output_post_instagram:
+      "時を重ねた木々が、あなたの指先に。\n金属とは違う、肌に寄り添うやさしさ。\nひとつひとつ手作業で仕上げた世界にひとつだけの一本です🌿\n.\n#木の指輪 #ハンドメイド #木工 #天然木 #ギフト #プレゼント #ものづくり",
   },
   "sample-gen-2": {
     output_titles: "机の上の、小さな木の相棒\n無垢材スマホスタンドの魅力",
@@ -126,6 +139,12 @@ const SAMPLE_GEN_CONTENT: Record<
       "毎日触れるものだから、心地よさにこだわりたい。\n無垢材から削り出したスマホスタンドは、置くだけでデスクの空気が変わります。\n角度はちょうど見やすく、使うほどに手になじみます。",
     output_story:
       "1. 木目のアップ\n2. スタンドにスマホを置くカット\n3. デスク全体の引き\n4. ロゴで締め",
+    output_post_x:
+      "置くだけでデスクの空気が変わる、無垢材のスマホスタンド。使うほど手になじみます。 #スマホスタンド #木工",
+    output_post_tiktok:
+      "デスクが一気に整う無垢材スタンド📱✨ 使うほど味が出ます #スマホスタンド #木工 #デスク環境 #ガジェット #おすすめ",
+    output_post_instagram:
+      "毎日触れるものだから、心地よさにこだわりたい。\n無垢材から削り出したスマホスタンドは、置くだけでデスクの空気が変わります📱\n.\n#スマホスタンド #無垢材 #木工 #デスク環境 #ものづくり #ハンドメイド",
   },
 };
 
@@ -182,6 +201,10 @@ export const SAMPLE_GENERATIONS: Generation[] = [
     output_titles: SAMPLE_GEN_CONTENT["sample-gen-1"].output_titles,
     output_script: SAMPLE_SCRIPT_TEXT,
     output_story: SAMPLE_STORY_TEXT,
+    output_post_x: SAMPLE_GEN_CONTENT["sample-gen-1"].output_post_x,
+    output_post_tiktok: SAMPLE_GEN_CONTENT["sample-gen-1"].output_post_tiktok,
+    output_post_instagram:
+      SAMPLE_GEN_CONTENT["sample-gen-1"].output_post_instagram,
     is_favorite: true,
     created_at: T2,
   },
@@ -193,6 +216,10 @@ export const SAMPLE_GENERATIONS: Generation[] = [
     output_titles: SAMPLE_GEN_CONTENT["sample-gen-2"].output_titles,
     output_script: SAMPLE_GEN_CONTENT["sample-gen-2"].output_script,
     output_story: SAMPLE_GEN_CONTENT["sample-gen-2"].output_story,
+    output_post_x: SAMPLE_GEN_CONTENT["sample-gen-2"].output_post_x,
+    output_post_tiktok: SAMPLE_GEN_CONTENT["sample-gen-2"].output_post_tiktok,
+    output_post_instagram:
+      SAMPLE_GEN_CONTENT["sample-gen-2"].output_post_instagram,
     is_favorite: false,
     created_at: T1,
   },
