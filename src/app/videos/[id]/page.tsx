@@ -52,6 +52,21 @@ export default function VideoDetailPage() {
     }
   }
 
+  // 台本／ストーリーの編集は生成元へ書き戻す
+  async function saveContent(p: {
+    output_script?: string;
+    output_story?: string;
+  }) {
+    if (!video || !video.generation) return;
+    setVideo({ ...video, generation: { ...video.generation, ...p } });
+    try {
+      await api.patch("/api/videos", { id: video.id, ...p });
+    } catch (e) {
+      setError((e as Error).message);
+      await load();
+    }
+  }
+
   async function remove() {
     if (!video) return;
     if (!confirm("この動画を削除しますか？")) return;
@@ -130,11 +145,19 @@ export default function VideoDetailPage() {
         </Card>
       )}
 
-      {video.generation?.output_script && (
-        <DetailBlock title="台本" text={video.generation.output_script} />
+      {video.generation?.output_script != null && (
+        <DetailBlock
+          title="台本"
+          text={video.generation.output_script}
+          onSave={(t) => saveContent({ output_script: t })}
+        />
       )}
-      {video.generation?.output_story && (
-        <DetailBlock title="ストーリー（Flow用）" text={video.generation.output_story} />
+      {video.generation?.output_story != null && (
+        <DetailBlock
+          title="ストーリー（Flow用）"
+          text={video.generation.output_story}
+          onSave={(t) => saveContent({ output_story: t })}
+        />
       )}
 
       {(video.generation?.output_post_x ||
@@ -187,16 +210,81 @@ function SnsRow({ label, text }: { label: string; text: string }) {
   );
 }
 
-function DetailBlock({ title, text }: { title: string; text: string }) {
+function DetailBlock({
+  title,
+  text,
+  onSave,
+}: {
+  title: string;
+  text: string;
+  onSave?: (text: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(text);
+
+  function startEdit() {
+    setDraft(text);
+    setEditing(true);
+  }
+  function save() {
+    onSave?.(draft);
+    setEditing(false);
+  }
+  function cancel() {
+    setDraft(text);
+    setEditing(false);
+  }
+
   return (
     <Card className="p-4 space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-sm">{title}</h2>
-        <CopyButton text={text} />
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <button
+                type="button"
+                onClick={cancel}
+                className="text-xs px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                className="text-xs px-3 py-1 rounded-full bg-neutral-900 hover:bg-neutral-700 text-white transition-colors"
+              >
+                保存
+              </button>
+            </>
+          ) : (
+            <>
+              <CopyButton text={text} />
+              {onSave && (
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="text-xs px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors"
+                >
+                  編集
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700">
-        {text}
-      </p>
+      {editing ? (
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={Math.min(20, Math.max(6, draft.split("\n").length + 1))}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[15px] leading-relaxed resize-y"
+        />
+      ) : (
+        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700">
+          {text}
+        </p>
+      )}
     </Card>
   );
 }

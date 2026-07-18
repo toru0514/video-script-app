@@ -77,11 +77,56 @@ export async function GET(req: Request) {
 }
 
 // PATCH /api/videos
-// { id, title?, narration_status?, video_status?, publish_status?, note? }
+// { id, title?, narration_status?, video_status?, publish_status?, note?,
+//   output_script?, output_story? }
+// output_script / output_story は生成元(generation もしくは お手本 script)へ
+// 書き戻す。
 export async function PATCH(req: Request) {
   try {
     const b = await req.json();
     if (!b?.id) return fail("id は必須です");
+
+    const sb = getSupabase();
+
+    // 台本／ストーリーの編集は生成元テーブルへ書き戻す
+    const editScript = b.output_script !== undefined;
+    const editStory = b.output_story !== undefined;
+    if (editScript || editStory) {
+      if (editScript && typeof b.output_script !== "string")
+        return fail("output_script が不正です");
+      if (editStory && typeof b.output_story !== "string")
+        return fail("output_story が不正です");
+
+      const { data: v, error: vErr } = await sb
+        .from(T.videos)
+        .select("generation_id, script_id")
+        .eq("id", b.id)
+        .maybeSingle<{ generation_id: string | null; script_id: string | null }>();
+      if (vErr) return fail(vErr.message, 500);
+      if (!v) return fail("動画が見つかりません", 404);
+
+      if (v.generation_id) {
+        const gUpd: Record<string, unknown> = {};
+        if (editScript) gUpd.output_script = b.output_script;
+        if (editStory) gUpd.output_story = b.output_story;
+        const { error } = await sb
+          .from(T.generations)
+          .update(gUpd)
+          .eq("id", v.generation_id);
+        if (error) return fail(error.message, 500);
+      } else if (v.script_id) {
+        const sUpd: Record<string, unknown> = {};
+        if (editScript) sUpd.script = b.output_script;
+        if (editStory) sUpd.story = b.output_story;
+        const { error } = await sb
+          .from(T.scripts)
+          .update(sUpd)
+          .eq("id", v.script_id);
+        if (error) return fail(error.message, 500);
+      } else {
+        return fail("編集できる生成元がありません", 400);
+      }
+    }
 
     const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -113,7 +158,6 @@ export async function PATCH(req: Request) {
       update.note = b.note;
     }
 
-    const sb = getSupabase();
     const { data, error } = await sb
       .from(T.videos)
       .update(update)
