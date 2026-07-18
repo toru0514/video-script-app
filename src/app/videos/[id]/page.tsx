@@ -22,6 +22,8 @@ export default function VideoDetailPage() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   async function load() {
     setLoading(true);
@@ -112,23 +114,70 @@ export default function VideoDetailPage() {
 
       {titleCandidates.length > 0 ? (
         <Card className="p-4 space-y-2">
-          <h2 className="font-bold text-sm">採用タイトル</h2>
-          <ul className="space-y-1">
-            {titleCandidates.map((t, i) => (
-              <li key={i}>
-                <label className="flex items-start gap-2 text-[15px] cursor-pointer">
-                  <input
-                    type="radio"
-                    name="title"
-                    className="mt-1.5"
-                    checked={video.title === t}
-                    onChange={() => patch({ title: t })}
-                  />
-                  <span>{t}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-sm">採用タイトル</h2>
+            <div className="flex items-center gap-2">
+              {editingTitle ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTitle(false)}
+                    className="text-xs px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = titleDraft.trim();
+                      if (!t) return;
+                      patch({ title: t });
+                      setEditingTitle(false);
+                    }}
+                    className="text-xs px-3 py-1 rounded-full bg-neutral-900 hover:bg-neutral-700 text-white transition-colors"
+                  >
+                    保存
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleDraft(video.title);
+                    setEditingTitle(true);
+                  }}
+                  className="text-xs px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors"
+                >
+                  編集
+                </button>
+              )}
+            </div>
+          </div>
+          {editingTitle ? (
+            <input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              placeholder="タイトルを入力"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base"
+            />
+          ) : (
+            <ul className="space-y-1">
+              {titleCandidates.map((t, i) => (
+                <li key={i}>
+                  <label className="flex items-start gap-2 text-[15px] cursor-pointer">
+                    <input
+                      type="radio"
+                      name="title"
+                      className="mt-1.5"
+                      checked={video.title === t}
+                      onChange={() => patch({ title: t })}
+                    />
+                    <span>{t}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       ) : (
         <Card className="p-4 space-y-2">
