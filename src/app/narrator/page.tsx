@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { NarratorTask, NarratorTasksResponse } from "@/lib/types";
+import type { Narrator, NarratorTask, NarratorTasksResponse } from "@/lib/types";
 import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
 
 export default function NarratorPage() {
@@ -14,6 +14,9 @@ export default function NarratorPage() {
   const [tasks, setTasks] = useState<NarratorTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // admin 用: ナレーター別フィルター（"" = 全ナレーター横断）
+  const [narrators, setNarrators] = useState<Narrator[]>([]);
+  const [filterId, setFilterId] = useState("");
 
   async function logout() {
     try {
@@ -24,12 +27,15 @@ export default function NarratorPage() {
     router.replace("/login");
   }
 
-  async function load() {
+  async function load(narratorId = filterId) {
     setLoading(true);
     setError(null);
     try {
-      // 本人は Cookie で特定されるためパラメータ不要
-      const data = await api.get<NarratorTasksResponse>("/api/narrator/videos");
+      // 本人は Cookie で特定される。admin は narrator_id で絞り込み（未指定なら全員横断）。
+      const q = narratorId ? `?narrator_id=${narratorId}` : "";
+      const data = await api.get<NarratorTasksResponse>(
+        `/api/narrator/videos${q}`,
+      );
       setIsAdmin(data.role === "admin");
       setName(data.narrator?.name ?? null);
       setTasks(data.tasks);
@@ -42,7 +48,23 @@ export default function NarratorPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // admin と判明したら絞り込み用のナレーター一覧を取得（初回のみ）
+  useEffect(() => {
+    if (isAdmin && narrators.length === 0) {
+      api
+        .get<Narrator[]>("/api/narrators")
+        .then((list) => setNarrators(list ?? []))
+        .catch(() => {});
+    }
+  }, [isAdmin, narrators.length]);
+
+  function onChangeFilter(id: string) {
+    setFilterId(id);
+    load(id);
+  }
 
   async function markDone(task: NarratorTask) {
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
@@ -68,13 +90,30 @@ export default function NarratorPage() {
           <LogoutButton onClick={logout} />
         </div>
         {isAdmin ? (
-          <p className="text-sm text-neutral-500">
-            全ナレーターの未収録動画です。各ナレーターには、このサイトのURLと
-            <Link href="/settings" className="text-blue-600 underline mx-1">
-              設定
-            </Link>
-            で確認できる各自のパスワードを伝えてください。
-          </p>
+          <>
+            <p className="text-sm text-neutral-500">
+              全ナレーターの未収録動画です。各ナレーターには、このサイトのURLと
+              <Link href="/settings" className="text-blue-600 underline mx-1">
+                設定
+              </Link>
+              で確認できる各自のパスワードを伝えてください。
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <label className="text-sm text-neutral-600">ナレーター</label>
+              <select
+                value={filterId}
+                onChange={(e) => onChangeFilter(e.target.value)}
+                className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm"
+              >
+                <option value="">全ナレーター</option>
+                {narrators.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         ) : (
           <p className="text-sm text-neutral-500">
             担当の未収録動画です。台本を確認し、録り終えたら「収録完了」を押してください。
