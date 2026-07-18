@@ -82,6 +82,7 @@ export type Video = {
   video_status: VideoStatus;
   publish_status: PublishStatus;
   note: string | null;
+  storage_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -114,7 +115,7 @@ export type NarratorTasksResponse = {
   tasks: NarratorTask[];
 };
 
-// 動画編集者向けページで表示する 1 件分（動画生成が未完了＋台本/ストーリー）
+// 動画編集者向けページで表示する 1 件分（動画生成が「依頼中」＋台本/ストーリー）
 export type EditorTask = {
   id: string;
   title: string;
@@ -123,6 +124,7 @@ export type EditorTask = {
   output_titles: string | null;
   output_script: string | null;
   output_story: string | null;
+  storage_url: string | null;
 };
 
 export type EditorTasksResponse = {

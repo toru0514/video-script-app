@@ -13,7 +13,7 @@ export const NARRATION_OPTIONS: { value: NarrationStatus; label: string }[] = [
 
 export const VIDEO_OPTIONS: { value: VideoStatus; label: string }[] = [
   { value: "not_requested", label: "未依頼" },
-  { value: "rendering", label: "待ち" },
+  { value: "rendering", label: "依頼中" },
   { value: "done", label: "完了" },
 ];
 

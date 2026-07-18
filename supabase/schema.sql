@@ -110,6 +110,8 @@ create table if not exists public.vsg_videos (
   publish_status   text not null default 'unpublished'
                    check (publish_status in ('unpublished','published')),
   note             text,
+  -- storage_url: 完成動画の保存先（Google Drive リンク等）。動画編集者が入力する。
+  storage_url      text,
   created_at       timestamptz not null default now(),
   -- updated_at はAPI層（PATCHハンドラ）で更新する。DBトリガーは無い。
   updated_at       timestamptz not null default now()

@@ -78,6 +78,7 @@ export const SAMPLE_VIDEOS: Video[] = [
     video_status: "not_requested",
     publish_status: "unpublished",
     note: null,
+    storage_url: null,
     created_at: T2,
     updated_at: T2,
   },
@@ -92,6 +93,7 @@ export const SAMPLE_VIDEOS: Video[] = [
     video_status: "rendering",
     publish_status: "unpublished",
     note: "BGMは明るめで",
+    storage_url: null,
     created_at: T1,
     updated_at: T1,
   },
@@ -106,6 +108,7 @@ export const SAMPLE_VIDEOS: Video[] = [
     video_status: "done",
     publish_status: "published",
     note: null,
+    storage_url: null,
     created_at: T0,
     updated_at: T0,
   },
@@ -156,9 +159,9 @@ export function sampleVideoDetail(id: string | null): VideoDetail | null {
   return { ...v, generation: content ?? null };
 }
 
-// ゲスト向け：動画生成が未完了のサンプル動画を編集タスクとして返す
+// ゲスト向け：動画生成が「依頼中」のサンプル動画を編集タスクとして返す
 export function sampleEditorTasks(): EditorTask[] {
-  return SAMPLE_VIDEOS.filter((v) => v.video_status !== "done").map((v) => {
+  return SAMPLE_VIDEOS.filter((v) => v.video_status === "rendering").map((v) => {
     const content = v.generation_id
       ? SAMPLE_GEN_CONTENT[v.generation_id]
       : null;
@@ -170,6 +173,7 @@ export function sampleEditorTasks(): EditorTask[] {
       output_titles: content?.output_titles ?? null,
       output_script: content?.output_script ?? null,
       output_story: content?.output_story ?? null,
+      storage_url: v.storage_url,
     };
   });
 }

@@ -39,6 +39,22 @@ export default function EditorPage() {
     }
   }
 
+  async function saveStorage(task: EditorTask, storageUrl: string) {
+    const value = storageUrl.trim() || null;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, storage_url: value } : t)),
+    );
+    try {
+      await api.patch("/api/editor/videos", {
+        id: task.id,
+        storage_url: value,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+      await load();
+    }
+  }
+
   if (loading) return <Spinner label="読み込み中…" />;
 
   return (
@@ -46,7 +62,7 @@ export default function EditorPage() {
       <div className="space-y-1">
         <h1 className="text-lg font-bold">動画編集リスト</h1>
         <p className="text-sm text-neutral-500">
-          動画生成が未完了の動画です。台本とストーリーを確認し、編集し終えたら「編集完了」を押してください。
+          依頼中の動画です。台本とストーリーを確認し、保存先を入力して、編集し終えたら「編集完了」を押してください。
         </p>
       </div>
 
@@ -54,13 +70,19 @@ export default function EditorPage() {
 
       {tasks.length === 0 ? (
         <p className="text-sm text-neutral-500">
-          編集待ちの動画はありません。お疲れさまです！
+          依頼中の動画はありません。お疲れさまです！
         </p>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-neutral-600">編集待ち：{tasks.length} 件</p>
+          <p className="text-sm text-neutral-600">依頼中：{tasks.length} 件</p>
           {tasks.map((t) => (
-            <TaskCard key={t.id} task={t} onDone={markDone} disabled={guest} />
+            <TaskCard
+              key={t.id}
+              task={t}
+              onDone={markDone}
+              onSaveStorage={saveStorage}
+              disabled={guest}
+            />
           ))}
         </div>
       )}
@@ -68,19 +90,48 @@ export default function EditorPage() {
   );
 }
 
+// ストーリー本文をシーン単位（「1. …」「2. …」等）に分割する。
+// 番号始まりの行を新しいシーンの先頭とし、それ以外の行は直前シーンに続ける。
+// 番号付きの行が無ければ全体を1シーンとして返す。
+function splitScenes(story: string): string[] {
+  const lines = story.split("\n");
+  const hasNumbered = lines.some((l) => /^\s*\d+\s*[.．)、:：]/.test(l));
+  if (!hasNumbered) {
+    const trimmed = story.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  const scenes: string[] = [];
+  for (const line of lines) {
+    if (/^\s*\d+\s*[.．)、:：]/.test(line)) {
+      scenes.push(line);
+    } else if (scenes.length > 0) {
+      scenes[scenes.length - 1] += "\n" + line;
+    } else if (line.trim()) {
+      scenes.push(line);
+    }
+  }
+  return scenes.map((s) => s.trim()).filter(Boolean);
+}
+
 function TaskCard({
   task,
   onDone,
+  onSaveStorage,
   disabled = false,
 }: {
   task: EditorTask;
   onDone: (task: EditorTask) => void;
+  onSaveStorage: (task: EditorTask, storageUrl: string) => void;
   disabled?: boolean;
 }) {
+  const [storage, setStorage] = useState(task.storage_url ?? "");
+  const dirty = storage.trim() !== (task.storage_url ?? "");
+
   return (
     <Card className="p-4 space-y-3">
-      <h2 className="font-bold text-base sm:text-[15px] leading-snug">
-        {task.title}
+      <h2 className="text-base sm:text-[15px] leading-snug">
+        <span className="text-neutral-500">タイトル：</span>
+        <span className="font-bold">{task.title}</span>
       </h2>
 
       {task.output_script ? (
@@ -90,10 +141,43 @@ function TaskCard({
       )}
 
       {task.output_story ? (
-        <ContentBlock title="ストーリー（映像構成）" text={task.output_story} />
+        <SceneBlock story={task.output_story} />
       ) : (
         <p className="text-xs text-neutral-400">ストーリーがありません。</p>
       )}
+
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+        <h3 className="font-bold text-xs text-neutral-600">
+          保存先（Google Drive リンク）
+        </h3>
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={storage}
+            onChange={(e) => setStorage(e.target.value)}
+            placeholder="https://drive.google.com/..."
+            className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[15px]"
+          />
+          <button
+            type="button"
+            disabled={disabled || !dirty}
+            onClick={() => onSaveStorage(task, storage)}
+            className="shrink-0 text-sm px-3 py-2 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            保存
+          </button>
+        </div>
+        {task.storage_url && !dirty && (
+          <a
+            href={task.storage_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block text-xs text-blue-600 hover:text-blue-800 underline break-all"
+          >
+            保存先を開く
+          </a>
+        )}
+      </div>
 
       <div className="pt-1 sm:flex sm:justify-end">
         <Button
@@ -108,6 +192,32 @@ function TaskCard({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function SceneBlock({ story }: { story: string }) {
+  const scenes = splitScenes(story);
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2">
+      <h3 className="font-bold text-xs text-neutral-600">
+        ストーリー（映像構成）
+      </h3>
+      <ul className="space-y-1.5">
+        {scenes.map((scene, i) => (
+          <li
+            key={i}
+            className="flex items-start justify-between gap-2 rounded-md bg-white border border-neutral-200 px-3 py-2"
+          >
+            <p className="min-w-0 whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-700">
+              {scene}
+            </p>
+            <div className="shrink-0">
+              <CopyButton text={scene} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

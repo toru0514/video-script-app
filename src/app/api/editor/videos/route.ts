@@ -5,7 +5,7 @@ import { sampleEditorTasks } from "@/lib/sampleData";
 import type { EditorTask, Video } from "@/lib/types";
 
 // GET /api/editor/videos
-// 動画生成が未完了（video_status != done）の動画を、台本/ストーリー付きで返す。
+// 動画生成が「依頼中」（video_status = rendering）の動画を、台本/ストーリー付きで返す。
 // ログインでの切り分けはせず、管理者は実データ・ゲストはサンプルを返す。
 // 返却: { tasks: EditorTask[] }
 export async function GET() {
@@ -19,7 +19,7 @@ export async function GET() {
     const { data: videos, error } = await sb
       .from(T.videos)
       .select("*")
-      .neq("video_status", "done")
+      .eq("video_status", "rendering")
       .order("created_at", { ascending: false })
       .returns<Video[]>();
     if (error) return fail(error.message, 500);
@@ -84,6 +84,7 @@ export async function GET() {
         output_titles: content?.output_titles ?? null,
         output_script: content?.output_script ?? null,
         output_story: content?.output_story ?? null,
+        storage_url: v.storage_url,
       };
     });
 
@@ -93,8 +94,10 @@ export async function GET() {
   }
 }
 
-// PATCH /api/editor/videos  { id }
-// 動画生成ステータスを「完了」にする（管理者のみ）。
+// PATCH /api/editor/videos
+// { id, storage_url? } : storage_url を指定すると保存先を更新する。
+// { id }               : 動画生成ステータスを「完了」にする。
+// いずれも管理者のみ。
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
@@ -103,13 +106,26 @@ export async function PATCH(req: Request) {
     const { role } = await getAuth();
     if (role !== "admin") return fail("認証が必要です", 401);
 
+    const update: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (body.storage_url !== undefined) {
+      // 保存先の更新（Google Drive リンク等）
+      if (body.storage_url !== null && typeof body.storage_url !== "string")
+        return fail("storage_url が不正です");
+      const trimmed =
+        typeof body.storage_url === "string" ? body.storage_url.trim() : "";
+      update.storage_url = trimmed || null;
+    } else {
+      // 保存先の指定がなければ「編集完了」として扱う
+      update.video_status = "done";
+    }
+
     const sb = getSupabase();
     const { data, error } = await sb
       .from(T.videos)
-      .update({
-        video_status: "done",
-        updated_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq("id", body.id)
       .select()
       .maybeSingle();
