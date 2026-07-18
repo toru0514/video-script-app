@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 
-export type Role = "admin" | "narrator" | "guest" | null;
+export type Role = "admin" | "editor" | "narrator" | "guest" | null;
 
 const RoleContext = createContext<Role>(null);
 
@@ -29,7 +29,12 @@ export function GuestBanner() {
   const role = useRole();
   const pathname = usePathname();
   if (role !== "guest") return null;
-  if (pathname === "/login" || pathname.startsWith("/narrator")) return null;
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/narrator") ||
+    pathname.startsWith("/editor")
+  )
+    return null;
   return (
     <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm px-4 py-2 text-center">
       サンプル表示中です（保存・AI生成はできません）。

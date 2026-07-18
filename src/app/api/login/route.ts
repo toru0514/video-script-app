@@ -5,7 +5,7 @@ import { AUTH_COOKIE } from "@/lib/authConstants";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30日
 
 // POST /api/login  { password }
-// 管理者(env) かナレーター(vsg_narrators.password) かを判定し Cookie を発行。
+// 管理者(env) / 動画編集者(env) / ナレーター(vsg_narrators.password) を判定し Cookie を発行。
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
@@ -13,11 +13,14 @@ export async function POST(req: Request) {
       return fail("パスワードを入力してください");
     }
 
-    let role: "admin" | "narrator" | null = null;
+    let role: "admin" | "editor" | "narrator" | null = null;
 
     const admin = process.env.ADMIN_PASSWORD;
+    const editor = process.env.EDITOR_PASSWORD;
     if (admin && password === admin) {
       role = "admin";
+    } else if (editor && password === editor) {
+      role = "editor";
     } else {
       const sb = getSupabase();
       const { data } = await sb

@@ -21,8 +21,15 @@ export function NavBar() {
   const router = useRouter();
   const role = useRole();
 
-  // ログイン画面とナレーター向けページでは管理ナビを出さない
-  if (pathname === "/login" || pathname.startsWith("/narrator")) return null;
+  // ログイン画面では管理ナビを出さない。
+  // ナレーター/動画編集ページは、その役割のユーザーには出さないが、
+  // 管理者にはページ間を移動できるよう出す。
+  if (pathname === "/login") return null;
+  if (
+    (pathname.startsWith("/narrator") || pathname.startsWith("/editor")) &&
+    role !== "admin"
+  )
+    return null;
 
   async function logout() {
     try {

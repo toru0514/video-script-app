@@ -7,10 +7,12 @@ import { AUTH_COOKIE } from "@/lib/authConstants";
 // proxy はパスのゲートのみ:
 //   - admin     : 全許可（実データ）
 //   - narrator  : /narrator 系のみ許可（実データ・本人）
+//   - editor    : /editor 系のみ許可（実データ）
 //   - guest(未) : ページ閲覧と GET API は許可（GETはサンプルを返す）。
 //                 書き込み(POST/PATCH/DELETE)と AI生成は 403 でブロック。
+//                 /narrator・/editor はログインが必要（ログインへ誘導）。
 
-type Gate = "admin" | "narrator" | "guest";
+type Gate = "admin" | "narrator" | "editor" | "guest";
 
 // AI生成系（ゲスト禁止）
 const AI_PATHS = ["/api/generate", "/api/patterns/extract", "/api/themes/suggest"];
@@ -20,6 +22,8 @@ function gateFromRequest(req: NextRequest): Gate {
   if (!token) return "guest";
   const admin = process.env.ADMIN_PASSWORD;
   if (admin && token === admin) return "admin";
+  const editor = process.env.EDITOR_PASSWORD;
+  if (editor && token === editor) return "editor";
   return "narrator";
 }
 
@@ -44,6 +48,8 @@ export function proxy(req: NextRequest) {
   const isAi = AI_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
   const narratorAllowed =
     pathname === "/narrator" || pathname.startsWith("/api/narrator/");
+  const editorAllowed =
+    pathname === "/editor" || pathname.startsWith("/api/editor/");
 
   // 管理者：すべて許可
   if (gate === "admin") return NextResponse.next();
@@ -55,9 +61,21 @@ export function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/narrator", req.url));
   }
 
+  // 動画編集者：/editor 系のみ
+  if (gate === "editor") {
+    if (editorAllowed) return NextResponse.next();
+    if (isApi) return jsonError("権限がありません", 403);
+    return NextResponse.redirect(new URL("/editor", req.url));
+  }
+
   // ゲスト（未ログイン）
-  // ナレーター個別ページは本人特定が必要なのでログインへ
-  if (pathname === "/narrator" || pathname.startsWith("/api/narrator/")) {
+  // ナレーター/動画編集ページはログインが必要なのでログインへ
+  if (
+    pathname === "/narrator" ||
+    pathname.startsWith("/api/narrator/") ||
+    pathname === "/editor" ||
+    pathname.startsWith("/api/editor/")
+  ) {
     if (isApi) return jsonError("認証が必要です", 401);
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname + search);

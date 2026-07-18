@@ -8,7 +8,6 @@ import type {
   Generation,
   Video,
   VideoDetail,
-  EditorTask,
 } from "./types";
 
 const T0 = "2026-01-10T00:00:00.000Z";
@@ -157,25 +156,6 @@ export function sampleVideoDetail(id: string | null): VideoDetail | null {
   if (!v) return null;
   const content = v.generation_id ? SAMPLE_GEN_CONTENT[v.generation_id] : null;
   return { ...v, generation: content ?? null };
-}
-
-// ゲスト向け：動画生成が「依頼中」のサンプル動画を編集タスクとして返す
-export function sampleEditorTasks(): EditorTask[] {
-  return SAMPLE_VIDEOS.filter((v) => v.video_status === "rendering").map((v) => {
-    const content = v.generation_id
-      ? SAMPLE_GEN_CONTENT[v.generation_id]
-      : null;
-    return {
-      id: v.id,
-      title: v.title,
-      video_status: v.video_status,
-      created_at: v.created_at,
-      output_titles: content?.output_titles ?? null,
-      output_script: content?.output_script ?? null,
-      output_story: content?.output_story ?? null,
-      storage_url: v.storage_url,
-    };
-  });
 }
 
 export const SAMPLE_SCRIPTS: Script[] = [

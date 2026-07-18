@@ -30,11 +30,17 @@ function LoginForm() {
     setLoading(true);
     setError(null);
     try {
-      const { role } = await api.post<{ role: "admin" | "narrator" }>(
+      const { role } = await api.post<{ role: "admin" | "editor" | "narrator" }>(
         "/api/login",
         { password },
       );
-      const target = safeNext ?? (role === "narrator" ? "/narrator" : "/");
+      const target =
+        safeNext ??
+        (role === "narrator"
+          ? "/narrator"
+          : role === "editor"
+            ? "/editor"
+            : "/");
       router.replace(target);
     } catch (e) {
       setError((e as Error).message);

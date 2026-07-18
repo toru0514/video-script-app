@@ -30,30 +30,36 @@ async function resolveTarget(
 }
 
 // GET /api/narrator/videos
-// ログイン中ナレーター（管理者は ?narrator_id=）の未収録動画を、台本/ストーリー付きで返す。
+// ログイン中ナレーターの未収録動画を、台本/ストーリー付きで返す。
+// 管理者は全ナレーターの未収録を横断で閲覧できる（?narrator_id= で個別に絞り込みも可）。
 // 返却: { role, narrator: {id,name}|null, tasks: NarratorTask[] }
 export async function GET(req: Request) {
   try {
     const paramId = new URL(req.url).searchParams.get("narrator_id");
     const auth = await getAuth();
-    // 管理者がプレビュー対象を指定せずに開いた場合は案内用の空レスポンス
-    if (auth.role === "admin" && !paramId) {
-      return ok({ role: "admin", narrator: null, tasks: [] });
-    }
-    const target = await resolveTarget(auth, paramId);
-    if (!target.ok) return fail(target.message, target.status);
 
     const sb = getSupabase();
-    const { data: videos, error } = await sb
+
+    // 対象の未収録動画を取得。管理者かつ narrator_id 未指定なら全ナレーター横断。
+    let narrator: { id: string; name: string } | null;
+    let query = sb
       .from(T.videos)
       .select("*")
-      .eq("narrator_id", target.id)
       .neq("narration_status", "done")
-      .order("created_at", { ascending: false })
-      .returns<Video[]>();
+      .order("created_at", { ascending: false });
+
+    if (auth.role === "admin" && !paramId) {
+      narrator = null; // 全ナレーター横断
+    } else {
+      const target = await resolveTarget(auth, paramId);
+      if (!target.ok) return fail(target.message, target.status);
+      query = query.eq("narrator_id", target.id);
+      narrator = { id: target.id, name: target.name ?? "" };
+    }
+
+    const { data: videos, error } = await query.returns<Video[]>();
     if (error) return fail(error.message, 500);
 
-    const narrator = { id: target.id, name: target.name ?? "" };
     const role = auth.role;
     const list = videos ?? [];
     if (list.length === 0) return ok({ role, narrator, tasks: [] });
@@ -125,27 +131,31 @@ export async function GET(req: Request) {
 }
 
 // PATCH /api/narrator/videos  { id }
-// ログイン中ナレーター本人の動画に限り「収録完了」にする（管理者は ?/body narrator_id 指定可）。
+// 「収録完了」にする。ナレーターは本人の動画のみ、管理者は任意の動画を対象にできる。
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
     if (!body?.id) return fail("id は必須です");
 
     const auth = await getAuth();
-    const target = await resolveTarget(auth, body?.narrator_id ?? null);
-    if (!target.ok) return fail(target.message, target.status);
 
     const sb = getSupabase();
-    const { data, error } = await sb
+    let update = sb
       .from(T.videos)
       .update({
         narration_status: "done",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", body.id)
-      .eq("narrator_id", target.id)
-      .select()
-      .maybeSingle();
+      .eq("id", body.id);
+
+    // ナレーターは本人の動画に限定（他人の動画を触れない）
+    if (auth.role !== "admin") {
+      const target = await resolveTarget(auth, body?.narrator_id ?? null);
+      if (!target.ok) return fail(target.message, target.status);
+      update = update.eq("narrator_id", target.id);
+    }
+
+    const { data, error } = await update.select().maybeSingle();
     if (error) return fail(error.message, 500);
     if (!data) return fail("対象の動画が見つかりません", 404);
     return ok({ id: body.id });

@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import type { EditorTask, EditorTasksResponse } from "@/lib/types";
 import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
 import { useRole } from "@/components/RoleProvider";
 
 export default function EditorPage() {
+  const router = useRouter();
   const guest = useRole() === "guest";
   const [tasks, setTasks] = useState<EditorTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function logout() {
+    try {
+      await api.del("/api/login");
+    } catch {
+      /* noop */
+    }
+    router.replace("/login");
+  }
 
   async function load() {
     setLoading(true);
@@ -60,7 +71,15 @@ export default function EditorPage() {
   return (
     <div className="space-y-5">
       <div className="space-y-1">
-        <h1 className="text-lg font-bold">動画編集リスト</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-lg font-bold">動画編集リスト</h1>
+          <button
+            onClick={logout}
+            className="shrink-0 text-xs text-neutral-500 hover:text-neutral-800 border border-neutral-300 rounded-full px-3 py-1"
+          >
+            ログアウト
+          </button>
+        </div>
         <p className="text-sm text-neutral-500">
           依頼中の動画です。台本とストーリーを確認し、保存先を入力して、編集し終えたら「編集完了」を押してください。
         </p>
@@ -90,27 +109,15 @@ export default function EditorPage() {
   );
 }
 
-// ストーリー本文をシーン単位（「1. …」「2. …」等）に分割する。
-// 番号始まりの行を新しいシーンの先頭とし、それ以外の行は直前シーンに続ける。
-// 番号付きの行が無ければ全体を1シーンとして返す。
+// ストーリー本文をシーン単位に分割する。
+// ストーリーは1行=1シーン（「1. …」「S1（…）…」等）で書かれているため、
+// 改行で分割し、空行を除いた各行をシーンとして返す。
+// 改行が無ければ全体を1シーンとして返す。
 function splitScenes(story: string): string[] {
-  const lines = story.split("\n");
-  const hasNumbered = lines.some((l) => /^\s*\d+\s*[.．)、:：]/.test(l));
-  if (!hasNumbered) {
-    const trimmed = story.trim();
-    return trimmed ? [trimmed] : [];
-  }
-  const scenes: string[] = [];
-  for (const line of lines) {
-    if (/^\s*\d+\s*[.．)、:：]/.test(line)) {
-      scenes.push(line);
-    } else if (scenes.length > 0) {
-      scenes[scenes.length - 1] += "\n" + line;
-    } else if (line.trim()) {
-      scenes.push(line);
-    }
-  }
-  return scenes.map((s) => s.trim()).filter(Boolean);
+  return story
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function TaskCard({

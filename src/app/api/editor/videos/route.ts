@@ -1,18 +1,17 @@
 import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
 import { getAuth } from "@/lib/auth";
-import { sampleEditorTasks } from "@/lib/sampleData";
 import type { EditorTask, Video } from "@/lib/types";
 
 // GET /api/editor/videos
 // 動画生成が「依頼中」（video_status = rendering）の動画を、台本/ストーリー付きで返す。
-// ログインでの切り分けはせず、管理者は実データ・ゲストはサンプルを返す。
+// 動画編集者(editor) 本人と管理者(admin) のみ閲覧できる。
 // 返却: { tasks: EditorTask[] }
 export async function GET() {
   try {
     const { role } = await getAuth();
-    if (role !== "admin") {
-      return ok({ tasks: sampleEditorTasks() });
+    if (role !== "admin" && role !== "editor") {
+      return fail("認証が必要です", 401);
     }
 
     const sb = getSupabase();
@@ -104,7 +103,8 @@ export async function PATCH(req: Request) {
     if (!body?.id) return fail("id は必須です");
 
     const { role } = await getAuth();
-    if (role !== "admin") return fail("認証が必要です", 401);
+    if (role !== "admin" && role !== "editor")
+      return fail("認証が必要です", 401);
 
     const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),

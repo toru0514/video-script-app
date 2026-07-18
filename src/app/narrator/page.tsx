@@ -56,37 +56,30 @@ export default function NarratorPage() {
 
   if (loading) return <Spinner label="読み込み中…" />;
 
-  if (isAdmin) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-bold">ナレーター用ページ</h1>
-          <LogoutButton onClick={logout} />
-        </div>
-        <p className="text-sm text-neutral-600 -mt-1">
-          ここは各ナレーターが自分のパスワードでログインして使うページです。
-          各ナレーターには、このサイトのURLと
-          <Link href="/settings" className="text-blue-600 underline mx-1">
-            設定
-          </Link>
-          で確認できる各自のパスワードを伝えてください。
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <div className="space-y-1">
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-lg font-bold">
-            ナレーション収録リスト{name ? `（${name}さん）` : ""}
+            {isAdmin
+              ? "ナレーション収録リスト（全ナレーター）"
+              : `ナレーション収録リスト${name ? `（${name}さん）` : ""}`}
           </h1>
           <LogoutButton onClick={logout} />
         </div>
-        <p className="text-sm text-neutral-500">
-          担当の未収録動画です。台本を確認し、録り終えたら「収録完了」を押してください。
-        </p>
+        {isAdmin ? (
+          <p className="text-sm text-neutral-500">
+            全ナレーターの未収録動画です。各ナレーターには、このサイトのURLと
+            <Link href="/settings" className="text-blue-600 underline mx-1">
+              設定
+            </Link>
+            で確認できる各自のパスワードを伝えてください。
+          </p>
+        ) : (
+          <p className="text-sm text-neutral-500">
+            担当の未収録動画です。台本を確認し、録り終えたら「収録完了」を押してください。
+          </p>
+        )}
       </div>
 
       <ErrorBox message={error} />
