@@ -45,7 +45,7 @@ export async function GET(req: Request) {
     let query = sb
       .from(T.videos)
       .select("*")
-      .neq("narration_status", "done")
+      .eq("narration_status", "recording")
       .order("created_at", { ascending: false });
 
     if (auth.role === "admin" && !paramId) {
