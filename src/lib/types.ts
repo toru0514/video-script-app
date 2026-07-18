@@ -113,3 +113,18 @@ export type NarratorTasksResponse = {
   narrator: { id: string; name: string } | null;
   tasks: NarratorTask[];
 };
+
+// 動画編集者向けページで表示する 1 件分（動画生成が未完了＋台本/ストーリー）
+export type EditorTask = {
+  id: string;
+  title: string;
+  video_status: VideoStatus;
+  created_at: string;
+  output_titles: string | null;
+  output_script: string | null;
+  output_story: string | null;
+};
+
+export type EditorTasksResponse = {
+  tasks: EditorTask[];
+};

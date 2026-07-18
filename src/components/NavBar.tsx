@@ -12,6 +12,7 @@ const links = [
   { href: "/patterns", label: "型" },
   { href: "/history", label: "履歴" },
   { href: "/narrator", label: "ナレーター" },
+  { href: "/editor", label: "動画編集" },
   { href: "/settings", label: "設定" },
 ];
 
