@@ -9,6 +9,8 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // テストは node --test で直接実行するため、相対 import に .ts 拡張子を付ける必要がある
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
