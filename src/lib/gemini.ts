@@ -1,7 +1,6 @@
-// Gemini API を listing-text-generator と同じ構成で呼び出す。
-// SDK: @google/generative-ai / 既定モデル: gemini-2.5-flash
+// Gemini API 呼び出し。SDK: @google/genai / 既定モデル: gemini-2.5-flash
 // API Key は GEMINI_API_KEY（サーバー専用）から読み込む。
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
@@ -25,17 +24,35 @@ function getApiKey(): string {
   return key;
 }
 
-function getModelName(): string {
+export function getClient(): GoogleGenAI {
+  return new GoogleGenAI({ apiKey: getApiKey() });
+}
+
+export function getModelName(): string {
   return process.env.GEMINI_MODEL || DEFAULT_MODEL;
 }
 
-export function getModel(temperature?: number) {
-  const genAI = new GoogleGenerativeAI(getApiKey());
-  return genAI.getGenerativeModel({
-    model: getModelName(),
-    generationConfig:
-      temperature != null ? { temperature } : undefined,
-  });
+/**
+ * SDK の例外を GeminiError に正規化する。
+ * 動画・撮影の両セクションでエラー表示を揃えるため、投げる前に必ずこれを通す。
+ */
+export function toGeminiError(e: unknown): GeminiError {
+  if (e instanceof GeminiError) return e;
+  const msg = (e as Error)?.message || "";
+  // SDK はステータスをメッセージに含めることが多い
+  if (/\b429\b|rate limit|quota|RESOURCE_EXHAUSTED/i.test(msg)) {
+    return new GeminiError(
+      "Gemini APIのレート制限（無料枠）に達しました。しばらく待ってから再試行してください。",
+      429,
+    );
+  }
+  if (/SAFETY|blocked/i.test(msg)) {
+    return new GeminiError(
+      "生成がブロックされました。テーマや入力内容を見直してください。",
+      502,
+    );
+  }
+  return new GeminiError(`Gemini APIエラー: ${msg.slice(0, 500)}`, 502);
 }
 
 /**
@@ -46,12 +63,14 @@ export async function generateText(
   prompt: string,
   opts?: { temperature?: number },
 ): Promise<string> {
-  const model = getModel(opts?.temperature ?? 0.9);
-
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    if (!text?.trim()) {
+    const res = await getClient().models.generateContent({
+      model: getModelName(),
+      contents: prompt,
+      config: { temperature: opts?.temperature ?? 0.9 },
+    });
+    const text = res.text ?? "";
+    if (!text.trim()) {
       throw new GeminiError(
         "Gemini APIから有効な応答が得られませんでした。テーマや入力を見直してください。",
         502,
@@ -59,21 +78,6 @@ export async function generateText(
     }
     return text.trim();
   } catch (e) {
-    if (e instanceof GeminiError) throw e;
-    const msg = (e as Error).message || "";
-    // SDK はステータスをメッセージに含めることが多い
-    if (/\b429\b|rate limit|quota|RESOURCE_EXHAUSTED/i.test(msg)) {
-      throw new GeminiError(
-        "Gemini APIのレート制限（無料枠）に達しました。しばらく待ってから再試行してください。",
-        429,
-      );
-    }
-    if (/SAFETY|blocked/i.test(msg)) {
-      throw new GeminiError(
-        "生成がブロックされました。テーマや入力内容を見直してください。",
-        502,
-      );
-    }
-    throw new GeminiError(`Gemini APIエラー: ${msg.slice(0, 500)}`, 502);
+    throw toGeminiError(e);
   }
 }
