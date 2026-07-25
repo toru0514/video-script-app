@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { getSupabase, T } from "./supabase";
 import { AUTH_COOKIE } from "./authConstants";
 
@@ -32,4 +33,16 @@ export async function getAuth(): Promise<Auth> {
   if (data) return { role: "narrator", narrator: data };
 
   return { role: null, narrator: null };
+}
+
+/**
+ * 撮影セクション（管理者専用）のガード。
+ * 権限がなければ 403 のレスポンスを返す。null を返したら通過してよい。
+ */
+export async function requireAdmin(): Promise<Response | null> {
+  const { role } = await getAuth();
+  if (role !== "admin") {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+  return null;
 }
