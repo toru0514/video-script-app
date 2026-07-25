@@ -5,7 +5,7 @@
  * プランナーでこの枠を選ぶと、テーマ・主目的・フォーマット・フック案が生成プロンプトに入る。
  */
 
-import type { PostFormat, PostGoal, PostTheme } from "./types";
+import type { PostFormat, PostGoal, PostTheme } from "./types.ts";
 
 export interface PlannedPost {
   /** 下書きに記録する識別子（例: post-02） */

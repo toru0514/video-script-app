@@ -6,9 +6,9 @@
 // 商品は vsg_products（T.products）を参照する。
 // ============================================================
 
-import { getSupabase, T } from "@/lib/supabase";
-import type { Product } from "@/lib/types";
-import type { Background, Draft, Material } from "./types";
+import { getSupabase, T } from "../supabase.ts";
+import type { Product } from "../types.ts";
+import type { Background, Draft, Material } from "./types.ts";
 
 export interface DraftWithProduct extends Draft {
   product: Product | null;
