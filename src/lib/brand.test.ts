@@ -138,6 +138,28 @@ test("価格未登録の商品では価格表を出さない", () => {
   assert.equal(/木材別の価格/.test(block), false);
 });
 
+test("金属不使用の商品では金属の禁止行を出さない", () => {
+  // 直下の金属セクションで「言い切って構いません」と書く以上、
+  // 禁止リストに「金属不使用の断定は使わない」を並べてはいけない。
+  const none = {
+    id: "1",
+    name: "木の指輪",
+    description: null,
+    price_from: 4000,
+    metal_type: "none",
+    sort_order: 1,
+    is_active: true,
+    created_at: "",
+  };
+  const block = buildBrandBlock({ product: none, purpose: "profile" });
+  assert.equal(/金属不使用の断定 は使わない/.test(block), false);
+
+  // 金属を使う商品では従来どおり禁止行を出す
+  const metal = { ...none, name: "木のネクタイピン", metal_type: "metal" };
+  const metalBlock = buildBrandBlock({ product: metal, purpose: "profile" });
+  assert.match(metalBlock, /金属不使用の断定 は使わない/);
+});
+
 test("価格が確定している商品には価格表を出す", () => {
   const priced = {
     id: "1",

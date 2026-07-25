@@ -416,6 +416,16 @@ export function buildBrandBlock(args: {
     ? `この商品の価格は「${price}」。金額に触れる場合は必ずこの表記をそのまま使い、値引き・キャンペーン・他の金額を書かないでください。`
     : `この商品は価格が未確定です。**投稿文・台本のどこにも金額を書かないでください**（「¥X,XXX」等のプレースホルダも禁止）。価格は「${BRAND.shopLine}ご確認いただけます」と案内してください。`;
 
+  // 金属不使用と確定している商品には、金属セクションで「言い切ってよい」と伝える。
+  // 同じプロンプトの禁止リストに「金属不使用の断定は使わない」が並ぶと矛盾するため外す。
+  // 免除の条件は findViolations / checkBrand と同じ（exemptWhenMetalFree）。
+  const metalFree = product?.metal_type === "none";
+  const ngRuleLines = NG_RULES.filter(
+    (r) => !(metalFree && r.exemptWhenMetalFree),
+  )
+    .map((r) => `- ${r.label} は使わない → 「${r.replacement}」`)
+    .join("\n");
+
   // 金額を書かせない商品に価格表を渡すと指示が自己矛盾するため、
   // 価格が確定している商品と、商品未選択のときだけ木材別の実額を見せる。
   const priceGuideBlock =
@@ -442,7 +452,7 @@ ${BRAND.voice.map((v) => `- ${v}`).join("\n")}
 ${purposeBlock}
 
 ■表現の禁止と言い換え（違反はやり直し対象）
-${NG_RULES.map((r) => `- ${r.label} は使わない → 「${r.replacement}」`).join("\n")}
+${ngRuleLines}
 - 木の個体差に触れるときは必ず「天然木のため、木目や色合いは一つずつ異なります」の言い方にする
 - ブランド全体として「金属アレルギー対応」は使ってよいが、「全商品が金属不使用」「一切金属を使用していません」は禁止（金属を使う商品があるため）
 
