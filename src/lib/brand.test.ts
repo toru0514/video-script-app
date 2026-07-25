@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { BRAND, FACTS, NG_RULES, buildBrandBlock } from "./brand.ts";
+import {
+  BRAND,
+  FACTS,
+  NG_RULES,
+  PRICE_GUIDE,
+  buildBrandBlock,
+} from "./brand.ts";
 
 /** テキストに違反があれば、そのラベルを返す。 */
 function labelsFor(text: string): string[] {
@@ -104,4 +110,49 @@ test("ハッシュタグは合計3〜5個の指示になっている", () => {
 
 test("BRAND.voice が情緒過多・広告調の禁止を含む", () => {
   assert.ok(BRAND.voice.some((v) => /情緒過多|広告調/.test(v)));
+});
+
+// ---- 木材別の価格表 ----
+
+test("木材別の価格表がプロンプトに含まれる", () => {
+  const block = buildBrandBlock({ product: null, purpose: "profile" });
+  assert.match(block, /カリン ¥4,000/);
+});
+
+test("価格未登録の商品では価格表を出さない", () => {
+  // 「金額をどこにも書かないでください」と指示する以上、価格表を並べてはいけない。
+  const noPrice = {
+    id: "1",
+    name: "試作品",
+    description: null,
+    price_from: null,
+    metal_type: null,
+    sort_order: 1,
+    is_active: true,
+    created_at: "",
+  };
+  const block = buildBrandBlock({ product: noPrice, purpose: "profile" });
+  assert.equal(block.includes(PRICE_GUIDE), false);
+  assert.equal(/木材別の価格/.test(block), false);
+});
+
+test("価格が確定している商品には価格表を出す", () => {
+  const priced = {
+    id: "1",
+    name: "木の指輪",
+    description: null,
+    price_from: 4000,
+    metal_type: "none",
+    sort_order: 1,
+    is_active: true,
+    created_at: "",
+  };
+  const block = buildBrandBlock({ product: priced, purpose: "profile" });
+  assert.ok(block.includes(PRICE_GUIDE));
+});
+
+test("PRICE_GUIDE に主要な木材が載っている", () => {
+  for (const wood of ["カリン", "パープルハート", "ピンクアイボリー", "スネークウッド"]) {
+    assert.ok(PRICE_GUIDE.includes(wood), `${wood} が PRICE_GUIDE にない`);
+  }
 });
