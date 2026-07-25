@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { NavBar } from "@/components/NavBar";
+import { AppShell } from "@/components/AppShell";
 import { RoleProvider, GuestBanner } from "@/components/RoleProvider";
 
 export const metadata: Metadata = {
-  title: "動画マネージャー",
-  description: "動画の制作進行（ナレーション・動画生成・公開）を管理し、台本・ストーリーを生成",
+  title: "cloud9 コンテンツマネージャー",
+  description:
+    "動画の台本生成・制作進行と、撮影プラン・投稿文の生成をまとめて管理",
 };
 
 export const viewport = {
@@ -24,10 +25,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-neutral-50 text-neutral-900">
         <RoleProvider>
           <GuestBanner />
-          <NavBar />
-          <main className="flex-1 w-full max-w-3xl mx-auto px-4 pb-24 pt-4">
-            {children}
-          </main>
+          <AppShell>{children}</AppShell>
         </RoleProvider>
       </body>
     </html>
