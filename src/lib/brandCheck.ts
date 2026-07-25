@@ -14,7 +14,7 @@ import {
   priceLine,
   type MetalType,
   type PostPurpose,
-} from "./brand";
+} from "./brand.ts";
 import type { GenerateResult, Product } from "./types";
 
 export type BrandWarning = {
@@ -45,10 +45,13 @@ export function checkBrand(args: {
     { where: "Instagram用投稿文", text: result.sns.instagram },
   ];
 
-  // 1. 禁止表現
+  // 1. 禁止表現（brand.ts の統合ルール表を使う）
+  // 金属不使用と確定している商品では、金属表現のルールを免除する。
+  const metalFree = product?.metal_type === "none";
   for (const t of targets) {
     if (!t.text) continue;
     for (const rule of NG_RULES) {
+      if (metalFree && rule.exemptWhenMetalFree) continue;
       const m = t.text.match(rule.pattern);
       if (m) {
         warnings.push({
@@ -60,7 +63,12 @@ export function checkBrand(args: {
   }
 
   // 2. 金属の言い方：商品の分類と矛盾していないか
-  if (product?.metal_type && product.metal_type !== "none") {
+  // "unknown" は商品固有の断定をさせないだけで、矛盾の検出対象にはしない。
+  if (
+    product?.metal_type &&
+    product.metal_type !== "none" &&
+    product.metal_type !== "unknown"
+  ) {
     const label = METAL_TYPES[product.metal_type as MetalType]?.label ?? "";
     for (const t of targets) {
       if (!t.text) continue;
