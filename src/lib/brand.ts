@@ -328,6 +328,38 @@ export const NG_RULES: NgRule[] = [
 ];
 
 // ------------------------------------------------------------
+// 生成結果の検査（出口は2つ）
+//   findViolations … 違反を再生成の指示に回す（撮影セクション）
+//   checkBrand     … 画面に警告として出す（動画セクション / brandCheck.ts）
+// どちらも上の NG_RULES を唯一の根拠にする。
+// ------------------------------------------------------------
+export type Violation = {
+  /** 検出された表現 */
+  matched: string;
+  /** なぜ問題か・どう直すか（再生成の指示にそのまま渡す） */
+  reason: string;
+};
+
+/**
+ * 生成テキストが表現ルールに違反していないか検査する。
+ * @param metalFree 対象商品の metal_type が "none" の場合 true（金属表現のルールを免除）
+ */
+export function findViolations(text: string, metalFree = false): Violation[] {
+  const violations: Violation[] = [];
+  for (const rule of NG_RULES) {
+    if (metalFree && rule.exemptWhenMetalFree) continue;
+    const m = text.match(rule.pattern);
+    if (m) violations.push({ matched: m[0], reason: rule.reason });
+  }
+  return violations;
+}
+
+/** 違反リストを再生成用の指示文にする。 */
+export function violationInstruction(violations: Violation[]): string {
+  return violations.map((v) => `- 「${v.matched}」: ${v.reason}`).join("\n");
+}
+
+// ------------------------------------------------------------
 // リール（動画）の構成ルール
 // ------------------------------------------------------------
 export const REEL_RULE = `【リール構成の固定ルール】

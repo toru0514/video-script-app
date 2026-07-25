@@ -6,6 +6,8 @@ import {
   NG_RULES,
   PRICE_GUIDE,
   buildBrandBlock,
+  findViolations,
+  violationInstruction,
 } from "./brand.ts";
 
 /** テキストに違反があれば、そのラベルを返す。 */
@@ -155,4 +157,29 @@ test("PRICE_GUIDE に主要な木材が載っている", () => {
   for (const wood of ["カリン", "パープルハート", "ピンクアイボリー", "スネークウッド"]) {
     assert.ok(PRICE_GUIDE.includes(wood), `${wood} が PRICE_GUIDE にない`);
   }
+});
+
+// ---- 再生成用の検査（撮影セクションが使う出口） ----
+
+test("findViolations は違反と理由を返す", () => {
+  const v = findViolations("愛知の工房から、送料無料でお届けします");
+  assert.equal(v.length, 2);
+  assert.ok(v.every((x) => x.reason.length > 0));
+});
+
+test("findViolations は正常な文で空を返す", () => {
+  assert.deepEqual(findViolations("天然木のため、木目や色合いは一つずつ異なります。"), []);
+});
+
+test("金属不使用の商品では金属ルールを免除する", () => {
+  const text = "この指輪は金属不使用です。";
+  assert.ok(findViolations(text, false).length > 0);
+  assert.deepEqual(findViolations(text, true), []);
+});
+
+test("violationInstruction は再生成用の指示文を作る", () => {
+  const v = findViolations("名古屋の工房です");
+  const s = violationInstruction(v);
+  assert.match(s, /名古屋/);
+  assert.match(s, /地域名/);
 });
