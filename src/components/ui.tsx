@@ -63,6 +63,77 @@ export function Card({
   );
 }
 
+export function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white/60 px-6 py-12 text-center">
+      <p className="text-sm font-medium text-neutral-600">{title}</p>
+      {description && (
+        <p className="mt-1 max-w-sm text-sm text-neutral-400">{description}</p>
+      )}
+    </div>
+  );
+}
+
+export function PageHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-4">
+      <h1 className="text-xl font-bold">{title}</h1>
+      {description && (
+        <p className="text-sm text-neutral-500 mt-1">{description}</p>
+      )}
+    </div>
+  );
+}
+
+/** 選択式のカード（撮影プランナーで商品・木材・背景素材を選ぶ）。 */
+export function SelectableCard({
+  name,
+  subtitle,
+  selected,
+  badge,
+  onClick,
+}: {
+  name: string;
+  subtitle?: string | null;
+  selected: boolean;
+  badge?: string | null;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex min-h-16 flex-col justify-center rounded-xl border bg-white px-3 py-2.5 text-left transition-colors ${
+        selected
+          ? "border-neutral-900 ring-2 ring-neutral-200"
+          : "border-neutral-200 hover:border-neutral-400"
+      }`}
+    >
+      {selected && (
+        <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white">
+          {badge ?? "✓"}
+        </span>
+      )}
+      <p className="pr-5 text-sm font-medium leading-snug break-words">{name}</p>
+      {subtitle && (
+        <p className="mt-0.5 text-xs text-neutral-400 break-words">{subtitle}</p>
+      )}
+    </button>
+  );
+}
+
 export function Button({
   children,
   variant = "primary",

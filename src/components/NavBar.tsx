@@ -5,12 +5,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useRole } from "@/components/RoleProvider";
 
-const links = [
+const videoLinks = [
   { href: "/", label: "動画" },
   { href: "/generate", label: "生成" },
   { href: "/scripts", label: "お手本" },
   { href: "/patterns", label: "型" },
   { href: "/history", label: "履歴" },
+];
+
+// 撮影セクションは管理者専用（API 側でも requireAdmin で弾いている）
+const shootLinks = [
+  { href: "/shoot/planner", label: "撮影プラン" },
+  { href: "/shoot/caption", label: "写真から投稿文" },
+  { href: "/shoot/drafts", label: "下書き" },
+];
+
+const otherLinks = [
   { href: "/narrator", label: "ナレーター" },
   { href: "/editor", label: "動画編集" },
   { href: "/settings", label: "設定" },
@@ -30,6 +40,11 @@ export function NavBar() {
     role !== "admin"
   )
     return null;
+
+  const links =
+    role === "admin"
+      ? [...videoLinks, ...shootLinks, ...otherLinks]
+      : [...videoLinks, ...otherLinks];
 
   async function logout() {
     try {
