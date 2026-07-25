@@ -2,13 +2,15 @@ import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
 import { generateText, GeminiError } from "@/lib/gemini";
 import { buildSuggestPrompt, parseThemeSuggestions } from "@/lib/prompts";
+import { findPurpose } from "@/lib/brand";
 import type { Narrator, Script, Pattern, Product } from "@/lib/types";
 
-// POST /api/themes/suggest  { narrator_id, product_id? }
+// POST /api/themes/suggest  { narrator_id, product_id?, purpose? }
 // 型があれば型から、なければ過去データからテーマ候補を複数返す。商品指定時はその商品に沿う。
+// purpose 指定時はコンテンツ5本柱のうち該当する柱を優先する。
 export async function POST(req: Request) {
   try {
-    const { narrator_id, product_id } = await req.json();
+    const { narrator_id, product_id, purpose } = await req.json();
     if (!narrator_id) return fail("narrator_id は必須です");
 
     const sb = getSupabase();
@@ -53,6 +55,7 @@ export async function POST(req: Request) {
       pattern,
       scripts ?? [],
       product,
+      findPurpose(purpose)?.key ?? null,
     );
     const text = await generateText(prompt, { temperature: 1.0 });
     const themes = parseThemeSuggestions(text);

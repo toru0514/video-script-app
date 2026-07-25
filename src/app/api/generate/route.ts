@@ -2,13 +2,18 @@ import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
 import { generateText, GeminiError } from "@/lib/gemini";
 import { buildGeneratePrompt, parseGeneration } from "@/lib/prompts";
+import { checkBrand } from "@/lib/brandCheck";
+import { findPurpose, type PostPurpose } from "@/lib/brand";
 import type { Narrator, Script, Pattern, Product } from "@/lib/types";
 
-// POST /api/generate  { narrator_id, theme?, product_id? }
+// POST /api/generate  { narrator_id, theme?, product_id?, purpose? }
 // 型があれば型を、なければ過去データ全件を使って生成する。商品指定時はその商品に限定。
+// purpose（保存/シェア/プロフィールアクセス/リーチ）はブランドルールの型切り替えに使う。
 export async function POST(req: Request) {
   try {
-    const { narrator_id, theme, product_id } = await req.json();
+    const { narrator_id, theme, product_id, purpose } = await req.json();
+    // 不正な値はブランドブロック側で無視されるよう null に落とす
+    const postPurpose: PostPurpose | null = findPurpose(purpose)?.key ?? null;
     if (!narrator_id) return fail("narrator_id は必須です");
     if (!theme?.trim() && !product_id)
       return fail("テーマか商品のどちらかを指定してください");
@@ -86,10 +91,14 @@ export async function POST(req: Request) {
       scripts,
       product,
       targetChars,
+      purpose: postPurpose,
     });
 
     const text = await generateText(prompt, { temperature: 0.95 });
     const result = parseGeneration(text);
+
+    // ブランドルール違反の機械チェック（生成は止めず警告として返す）
+    const warnings = checkBrand({ result, product, purpose: postPurpose });
 
     // 履歴に保存
     const { data: gen } = await sb
@@ -98,6 +107,7 @@ export async function POST(req: Request) {
         narrator_id,
         product_id: product?.id ?? null,
         input_theme: (theme ?? "").trim() || null,
+        input_purpose: postPurpose,
         output_titles: result.titles.join("\n"),
         output_script: result.script,
         output_story: result.story,
@@ -139,6 +149,7 @@ export async function POST(req: Request) {
       generation_id: gen?.id ?? null,
       video_id: videoId,
       used_pattern: !!pattern,
+      warnings,
     });
   } catch (e) {
     if (e instanceof GeminiError) return fail(e.message, e.status);

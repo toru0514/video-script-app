@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import type { Narrator, Product, GenerateResult } from "@/lib/types";
+import { PURPOSES, METAL_TYPES, type MetalType, type PostPurpose } from "@/lib/brand";
+import type { BrandWarning } from "@/lib/brandCheck";
 import { Button, Card, CopyButton, ErrorBox, Spinner } from "@/components/ui";
 import { useRole } from "@/components/RoleProvider";
 
@@ -12,6 +14,7 @@ type GenResponse = GenerateResult & {
   generation_id: string | null;
   used_pattern: boolean;
   video_id: string | null;
+  warnings?: BrandWarning[];
 };
 
 export default function GeneratePage() {
@@ -19,6 +22,7 @@ export default function GeneratePage() {
   const [narratorId, setNarratorId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState("");
+  const [purpose, setPurpose] = useState<PostPurpose>("profile");
   const [mode, setMode] = useState<"input" | "suggest">("input");
   const [theme, setTheme] = useState("");
 
@@ -56,6 +60,7 @@ export default function GeneratePage() {
       const r = await api.post<{ themes: string[] }>("/api/themes/suggest", {
         narrator_id: narratorId,
         product_id: productId || undefined,
+        purpose,
       });
       setSuggestions(r.themes);
     } catch (e) {
@@ -75,6 +80,7 @@ export default function GeneratePage() {
         narrator_id: narratorId,
         theme: theme.trim(),
         product_id: productId || undefined,
+        purpose,
       });
       setResult(r);
       setChosenTitle(r.titles[0] ?? null);
@@ -173,6 +179,29 @@ export default function GeneratePage() {
             {selectedProduct.description}
           </p>
         )}
+        {selectedProduct &&
+          (selectedProduct.price_from ? (
+            <p className="text-xs text-neutral-500">
+              価格：¥{selectedProduct.price_from.toLocaleString("ja-JP")}
+              〜（税込）— この表記で投稿文に使われます
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600">
+              価格が未登録のため、投稿文に金額を書きません。
+              <Link href="/settings" className="underline mx-1">
+                設定
+              </Link>
+              で登録できます。
+            </p>
+          ))}
+        {selectedProduct && (
+          <p className="text-xs text-neutral-500">
+            金属：
+            {selectedProduct.metal_type
+              ? METAL_TYPES[selectedProduct.metal_type as MetalType]?.label
+              : "未設定（商品固有の断定をさせません）"}
+          </p>
+        )}
         {products.length === 0 && (
           <p className="text-xs text-neutral-400">
             商品は
@@ -182,6 +211,37 @@ export default function GeneratePage() {
             で登録できます。
           </p>
         )}
+      </div>
+
+      {/* 投稿の目的（保存/シェア/プロフィールアクセス/リーチ） */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          この投稿の目的{" "}
+          <span className="text-neutral-400 font-normal">
+            （台本の型・CTA・テーマ候補が切り替わります）
+          </span>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {PURPOSES.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => {
+                setPurpose(p.key);
+                setSuggestions([]);
+              }}
+              className={`py-2 px-3 rounded-lg text-sm font-medium border text-left ${
+                purpose === p.key
+                  ? "bg-neutral-900 text-white border-neutral-900"
+                  : "bg-white text-neutral-600 border-neutral-300"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-500">
+          {PURPOSES.find((p) => p.key === purpose)?.aim}
+        </p>
       </div>
 
       {/* テーマの決め方 */}
@@ -280,6 +340,24 @@ export default function GeneratePage() {
             <p className="text-xs text-amber-600">
               ※ 動画リストへの追加に失敗しました（生成結果は保持されています）。
             </p>
+          )}
+
+          {result.warnings && result.warnings.length > 0 && (
+            <Card className="p-4 text-sm bg-amber-50 border-amber-200 text-amber-900 space-y-1.5">
+              <div className="font-bold">
+                ブランドルールの要チェック（{result.warnings.length}件）
+              </div>
+              <ul className="space-y-1">
+                {result.warnings.map((w, i) => (
+                  <li key={i} className="leading-relaxed">
+                    <span className="font-medium">{w.where}</span>：{w.message}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-amber-700">
+                そのまま投稿せず、この箇所を直すか再生成してください。
+              </p>
+            </Card>
           )}
 
           {!result.used_pattern && (

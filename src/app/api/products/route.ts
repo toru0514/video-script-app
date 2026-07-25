@@ -24,7 +24,19 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/products  { name, description?, sort_order? }
+// 価格は「最低価格（税込・円）」。空文字・0・不正値は null（＝投稿文に金額を書かせない）。
+function parsePrice(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+// 金属分類。未知の値は null（＝商品固有の断定をさせない）に落とす。
+function parseMetalType(v: unknown): string | null {
+  return v === "none" || v === "hypoallergenic" || v === "metal" ? v : null;
+}
+
+// POST /api/products  { name, description?, price_from?, metal_type?, sort_order? }
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -45,6 +57,8 @@ export async function POST(req: Request) {
       .insert({
         name: body.name.trim(),
         description: body.description?.trim() || null,
+        price_from: parsePrice(body.price_from),
+        metal_type: parseMetalType(body.metal_type),
         sort_order: sortOrder,
       })
       .select()
@@ -56,7 +70,7 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH /api/products  { id, name?, description?, sort_order?, is_active? }
+// PATCH /api/products  { id, name?, description?, price_from?, metal_type?, sort_order?, is_active? }
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
@@ -65,6 +79,10 @@ export async function PATCH(req: Request) {
     if (body.name !== undefined) patch.name = String(body.name).trim();
     if (body.description !== undefined)
       patch.description = body.description?.trim() || null;
+    if (body.price_from !== undefined)
+      patch.price_from = parsePrice(body.price_from);
+    if (body.metal_type !== undefined)
+      patch.metal_type = parseMetalType(body.metal_type);
     if (body.sort_order !== undefined) patch.sort_order = body.sort_order;
     if (body.is_active !== undefined) patch.is_active = body.is_active;
     const sb = getSupabase();

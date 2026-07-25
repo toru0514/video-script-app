@@ -67,6 +67,8 @@ create table if not exists public.vsg_generations (
   output_post_x         text,
   output_post_tiktok    text,
   output_post_instagram text,
+  -- 投稿の目的（save / share / profile / reach）。ブランドルールの型切り替えに使う。
+  input_purpose text,
   is_favorite   boolean not null default false,
   created_at    timestamptz not null default now()
 );
@@ -75,6 +77,14 @@ create table if not exists public.vsg_generations (
 alter table public.vsg_generations add column if not exists output_post_x text;
 alter table public.vsg_generations add column if not exists output_post_tiktok text;
 alter table public.vsg_generations add column if not exists output_post_instagram text;
+alter table public.vsg_generations add column if not exists input_purpose text;
+
+-- vsg_products は本ファイルで定義していない既存テーブル（上記のdrift注記を参照）だが、
+-- 価格欄だけは生成ロジックが依存するためここで後付けしておく。
+-- price_from: 最低価格（税込・円）。null の商品は投稿文に金額を書かせない。
+-- metal_type: 金属使用の分類（none / hypoallergenic / metal）。商品ごとに言える表現が違うため。
+alter table public.vsg_products add column if not exists price_from int;
+alter table public.vsg_products add column if not exists metal_type text;
 
 create index if not exists idx_vsg_generations_narrator_id on public.vsg_generations(narrator_id);
 
