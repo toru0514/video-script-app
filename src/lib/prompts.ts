@@ -1,10 +1,20 @@
 import type { Script, Pattern, Product, GenerateResult } from "./types";
+import {
+  buildBrandBlock,
+  priceLine,
+  PILLARS,
+  REEL_RULE,
+  findPurpose,
+  type PostPurpose,
+} from "./brand";
 
 // 商品情報をプロンプト用のテキストにする
 function productBlock(product?: Product | null): string {
   if (!product) return "";
   const desc = product.description ? `\n商品の説明・特徴：${product.description}` : "";
-  return `\n\n【対象商品】\nこの動画で必ず取り上げる商品：「${product.name}」${desc}\n台本・タイトル・ストーリーは、必ずこの商品「${product.name}」についてのものにしてください。他の商品を勝手に登場させないでください。`;
+  const price = priceLine(product);
+  const priceInfo = price ? `\n価格：${price}` : "";
+  return `\n\n【対象商品】\nこの動画で必ず取り上げる商品：「${product.name}」${desc}${priceInfo}\n台本・タイトル・ストーリーは、必ずこの商品「${product.name}」についてのものにしてください。他の商品を勝手に登場させないでください。`;
 }
 
 // ============================================================
@@ -67,6 +77,7 @@ export function buildSuggestPrompt(
   pattern: Pattern | null,
   scripts: Script[],
   product?: Product | null,
+  purpose?: PostPurpose | null,
 ): string {
   let context: string;
   if (pattern) {
@@ -85,9 +96,30 @@ ${scripts
     ? `商品「${product.name}」を題材にした、`
     : "この傾向・ジャンルに合う、";
 
+  // コンテンツ5本柱。目的が指定されていればその柱を優先させる。
+  const p = findPurpose(purpose);
+  const pillarLines = PILLARS.map(
+    (pl) =>
+      `- ${pl.name}（月間比率${pl.ratio}／狙い: ${
+        findPurpose(pl.purpose)?.label ?? ""
+      }）… ${pl.note}`,
+  ).join("\n");
+  const pillarRule = p
+    ? `候補は上の5本柱の中から出してください。今回の目的は「${p.label}」なので、${PILLARS.filter(
+        (pl) => pl.purpose === purpose,
+      )
+        .map((pl) => `「${pl.name}」`)
+        .join("・")}の柱を中心に、5つのうち3つ以上を割り当ててください。`
+    : "候補は上の5本柱の中から、比率のバランスを見て散らして出してください。";
+
   return `以下は私のナレーター「${name}」の過去動画の傾向です。
 ${productLine}新しい動画テーマ（切り口）の候補を5つ提案してください。
 各候補は短いフレーズで、1行ずつ。番号や記号、説明は不要です。
+
+【コンテンツ5本柱（この中から出す）】
+${pillarLines}
+${pillarRule}
+${buildBrandBlock({ product, purpose })}
 ${productBlock(product)}
 
 ${context}`;
@@ -111,8 +143,9 @@ export function buildGeneratePrompt(args: {
   scripts?: Script[];
   product?: Product | null;
   targetChars?: number; // お手本台本の平均文字数（長さの目安）
+  purpose?: PostPurpose | null; // 投稿の目的（保存/シェア/プロフィールアクセス/リーチ）
 }): string {
-  const { name, theme, pattern, scripts, product, targetChars } = args;
+  const { name, theme, pattern, scripts, product, targetChars, purpose } = args;
 
   // テーマ指定（商品選択時はテーマ任意）
   const themeLine = theme
@@ -152,7 +185,13 @@ ${pattern.story_pattern ?? ""}`;
 ${data}`;
   }
 
-  return `あなたはTikTok動画の構成作家です。
+  const purposeDef = findPurpose(purpose);
+  const ctaRule = purposeDef
+    ? `締めのCTAは、目的「${purposeDef.label}」の公式CTAから1つを一字一句そのまま使ってください。`
+    : "締めには、保存・共有・プロフィールへの導線のいずれかを促す一文を置いてください。";
+
+  return `あなたは木のアクセサリーブランドのSNS構成作家です。リール（縦型ショート動画）の台本と、その告知投稿文を作ります。
+${buildBrandBlock({ product, purpose })}
 ${reference}
 ${productBlock(product)}
 
@@ -161,7 +200,11 @@ ${productBlock(product)}
 ナレーター「${name}」らしさ（口調・トーン）は保ちつつ、内容と言葉は${themeLine}に即した新鮮なものにしてください。
 日本語のニュアンス・テンポを重視してください。
 ${lengthRule}
+
+${REEL_RULE}
+
 また、この動画をSNSで告知・拡散するための投稿文を、X・TikTok・Instagramの3媒体ぶん作ってください。核となる訴求（伝えたい魅力）は3媒体で共通でかまいませんが、文字数やハッシュタグの量は各媒体の慣習に合わせて調整してください。ナレーションの読み上げ台本とは別に、読み手（視聴者）が読む告知文として書いてください。
+${ctaRule}
 必ず下記のフォーマット（見出しは固定）で出力してください。
 
 # タイトル
@@ -171,16 +214,24 @@ ${lengthRule}
 （ナレーションが読み上げる本文。上記の長さ制約を必ず守る）
 
 # ストーリー
-（Flow等のAI動画生成に渡す、映像の流れ・シーン構成の説明。シーンごとに分かる粒度で）
+（Flow等のAI動画生成に渡す映像構成。上の「リール構成の固定ルール」に従い、必ず次の形で秒数区切りにする）
+0-3秒｜映像：… ／ 音：… ／ テキスト：…
+3-15秒｜映像：… ／ テキスト：…
+15-25秒｜映像：… ／ テキスト：…
+締め｜映像：… ／ テキスト：…
 
 # X用投稿文
-（この動画を告知・拡散するためのX（旧Twitter）向け投稿文。全角140字程度で簡潔に。フックのある1〜2文に、関連ハッシュタグを1〜2個添える。改行は最小限）
+（X（旧Twitter）向け投稿文。全角140字程度。フックのある1〜2文＋ハッシュタグ1〜2個。改行は最小限）
 
 # TikTok用投稿文
-（TikTok動画に添えるキャプション。短いフックの1文に、トレンドを意識したハッシュタグを3〜5個。絵文字も自然に交ぜてよい）
+（TikTok動画に添えるキャプション。短いフックの1文＋ハッシュタグ3〜5個。ブランドタグは #cloud9woodwork を使う。絵文字も自然に交ぜてよい）
 
 # Instagram用投稿文
-（Instagram向けキャプション。2〜4行で${themeLine}の魅力を伝え、最後にハッシュタグを5〜8個並べる。絵文字を使ってよい）`;
+（Instagram向けキャプション。次の4ブロックの順で必ず書く。ブロック間は空行で区切る）
+1行目：検索キーワードを含む実用的な1行（詩的表現は使わない）
+本文：${themeLine}の魅力を3〜5文で。ブランドボイスを守る
+CTA：公式CTAから1つを一字一句そのまま
+ハッシュタグ：ブランド1＋商品系2〜3＋（ギフト文脈なら）ギフト系1〜2＋コミュニティ系0〜1`;
 }
 
 // 生成結果を3ブロックに分解

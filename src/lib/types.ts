@@ -23,6 +23,10 @@ export type Product = {
   id: string;
   name: string;
   description: string | null;
+  /** 最低価格（税込・円）。null なら投稿文に金額を書かせない */
+  price_from: number | null;
+  /** 金属使用の分類（none / hypoallergenic / metal）。null なら商品固有の断定をさせない */
+  metal_type: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -43,6 +47,8 @@ export type Generation = {
   narrator_id: string | null;
   product_id: string | null;
   input_theme: string | null;
+  /** 投稿の目的（save / share / profile / reach） */
+  input_purpose: string | null;
   output_titles: string | null;
   output_script: string | null;
   output_story: string | null;

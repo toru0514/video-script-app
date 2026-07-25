@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Product } from "@/lib/types";
+import { METAL_TYPES, type MetalType } from "@/lib/brand";
 import { Button, Card, ErrorBox, Spinner } from "@/components/ui";
+
+const METAL_OPTIONS = Object.entries(METAL_TYPES) as [
+  MetalType,
+  { label: string; rule: string },
+][];
 
 export function ProductsManager() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -12,6 +18,8 @@ export function ProductsManager() {
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newMetal, setNewMetal] = useState("");
   const [adding, setAdding] = useState(false);
 
   async function load() {
@@ -37,9 +45,13 @@ export function ProductsManager() {
       await api.post("/api/products", {
         name: newName.trim(),
         description: newDesc.trim() || undefined,
+        price_from: newPrice.trim() || null,
+        metal_type: newMetal || null,
       });
       setNewName("");
       setNewDesc("");
+      setNewPrice("");
+      setNewMetal("");
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -99,6 +111,25 @@ export function ProductsManager() {
           rows={2}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base resize-y"
         />
+        <input
+          value={newPrice}
+          onChange={(e) => setNewPrice(e.target.value)}
+          inputMode="numeric"
+          placeholder="最低価格（税込・円。例：4000）※未入力なら投稿文に金額を書きません"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
+        />
+        <select
+          value={newMetal}
+          onChange={(e) => setNewMetal(e.target.value)}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+        >
+          <option value="">金属の分類：未設定（商品固有の断定をさせない）</option>
+          {METAL_OPTIONS.map(([key, m]) => (
+            <option key={key} value={key}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <Button onClick={add} disabled={!newName.trim() || adding}>
           {adding ? <Spinner label="追加中…" /> : "追加"}
         </Button>
@@ -145,6 +176,8 @@ function ProductRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(p.name);
   const [desc, setDesc] = useState(p.description ?? "");
+  const [price, setPrice] = useState(p.price_from ? String(p.price_from) : "");
+  const [metal, setMetal] = useState(p.metal_type ?? "");
 
   return (
     <Card className={`p-4 space-y-2 ${!p.is_active ? "opacity-60" : ""}`}>
@@ -162,10 +195,34 @@ function ProductRow({
             rows={2}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base resize-y"
           />
+          <input
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            inputMode="numeric"
+            placeholder="最低価格（税込・円。例：4000）※空なら金額を書きません"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
+          />
+          <select
+            value={metal}
+            onChange={(e) => setMetal(e.target.value)}
+            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base"
+          >
+            <option value="">金属の分類：未設定</option>
+            {METAL_OPTIONS.map(([key, m]) => (
+              <option key={key} value={key}>
+                {m.label}
+              </option>
+            ))}
+          </select>
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                onUpdate(p.id, { name, description: desc });
+                onUpdate(p.id, {
+                  name,
+                  description: desc,
+                  price_from: price.trim() ? Number(price) : null,
+                  metal_type: metal || null,
+                });
                 setEditing(false);
               }}
             >
@@ -193,6 +250,24 @@ function ProductRow({
                   {p.description}
                 </p>
               )}
+              <p className="text-xs mt-1 space-x-2">
+                {p.price_from ? (
+                  <span className="text-neutral-500">
+                    ¥{p.price_from.toLocaleString("ja-JP")}〜（税込）
+                  </span>
+                ) : (
+                  <span className="text-amber-600">
+                    価格未登録（投稿文に金額を書きません）
+                  </span>
+                )}
+                {p.metal_type ? (
+                  <span className="text-neutral-500">
+                    ／{METAL_TYPES[p.metal_type as MetalType]?.label}
+                  </span>
+                ) : (
+                  <span className="text-amber-600">／金属の分類が未設定</span>
+                )}
+              </p>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
               <button
