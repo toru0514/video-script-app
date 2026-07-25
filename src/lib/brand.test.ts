@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { NG_RULES } from "./brand.ts";
+import { BRAND, FACTS, NG_RULES, buildBrandBlock } from "./brand.ts";
 
 /** テキストに違反があれば、そのラベルを返す。 */
 function labelsFor(text: string): string[] {
@@ -73,4 +73,35 @@ test("新ルール: ブランド名の誤表記を検出する", () => {
 test("新ルール: 発送・修理の断定を検出する", () => {
   assert.ok(labelsFor("即日発送します").length > 0);
   assert.ok(labelsFor("サイズ直しも承ります").length > 0);
+});
+
+// ---- プロンプトがルールと矛盾していないこと ----
+
+test("FACTS に送料の記述が残っていない", () => {
+  assert.equal(
+    FACTS.some((f) => /送料/.test(f)),
+    false,
+  );
+});
+
+test("プロンプトに販路名を許す記述が残っていない", () => {
+  const block = buildBrandBlock({ product: null, purpose: "profile" });
+  // 禁止リストに「minne への言及」が並ぶのは正しい（LLMに禁止を伝えるため）。
+  // 消したいのは「触れても構わない」という許可の記述の方。
+  assert.equal(/触れても構わない|併売しているため/.test(block), false);
+  assert.match(block, /販路名を書かない/);
+});
+
+test("プロンプトに蜜蝋仕上げの記述がある", () => {
+  const block = buildBrandBlock({ product: null, purpose: "save" });
+  assert.match(block, /蜜蝋/);
+});
+
+test("ハッシュタグは合計3〜5個の指示になっている", () => {
+  const block = buildBrandBlock({ product: null, purpose: "save" });
+  assert.match(block, /合計3〜5個/);
+});
+
+test("BRAND.voice が情緒過多・広告調の禁止を含む", () => {
+  assert.ok(BRAND.voice.some((v) => /情緒過多|広告調/.test(v)));
 });
