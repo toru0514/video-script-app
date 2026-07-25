@@ -79,10 +79,31 @@ alter table public.vsg_generations add column if not exists output_post_tiktok t
 alter table public.vsg_generations add column if not exists output_post_instagram text;
 alter table public.vsg_generations add column if not exists input_purpose text;
 
--- vsg_products は本ファイルで定義していない既存テーブル（上記のdrift注記を参照）だが、
--- 価格欄だけは生成ロジックが依存するためここで後付けしておく。
--- price_from: 最低価格（税込・円）。null の商品は投稿文に金額を書かせない。
--- metal_type: 金属使用の分類（none / hypoallergenic / metal）。商品ごとに言える表現が違うため。
+-- ============================================================
+-- vsg_products（商品マスタ）
+--   投稿文・台本で価格や金属に言及する際の唯一の根拠。
+--   price_from: 最低価格（税込・円）。null の商品は金額を書かせない。
+--   metal_type: none / resin_option / metal / unknown。商品ごとに言える表現が違う。
+--   category / material / size_range は lumiere 統合時に取り込んだ（2026-07-25）。
+-- ============================================================
+create table if not exists public.vsg_products (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  description text,
+  category    text,
+  material    text,
+  size_range  text,
+  price_from  int,
+  metal_type  text not null default 'unknown',
+  sort_order  int not null default 0,
+  is_active   boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+-- 既存DBへの追随（本番には create table 以前から存在するため）
+alter table public.vsg_products add column if not exists category   text;
+alter table public.vsg_products add column if not exists material   text;
+alter table public.vsg_products add column if not exists size_range text;
 alter table public.vsg_products add column if not exists price_from int;
 alter table public.vsg_products add column if not exists metal_type text;
 
@@ -108,9 +129,6 @@ create table if not exists public.vsg_videos (
   -- script_id: お手本(vsg_scripts)から取り込んだ動画の参照元。生成由来なら null。
   script_id        uuid references public.vsg_scripts(id) on delete set null,
   narrator_id      uuid references public.vsg_narrators(id) on delete set null,
-  -- vsg_products は本番DBにのみ存在する既存テーブル（意図的なスキーマdrift）。
-  -- このファイルには定義しないため、schema.sql をゼロから実行するには
-  -- 事前に vsg_products が存在している必要がある（バグではない）。
   product_id       uuid references public.vsg_products(id) on delete set null,
   title            text not null,
   narration_status text not null default 'not_requested'

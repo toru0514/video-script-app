@@ -17,6 +17,11 @@ export const T = {
   generations: "vsg_generations",
   products: "vsg_products",
   videos: "vsg_videos",
+  // 撮影セクション。lumiere から引き継いだテーブル名をそのまま使う
+  // （リネームは移行事故のリスクだけ増えて得がないため）。
+  backgrounds: "lumiere_backgrounds",
+  materials: "lumiere_materials",
+  drafts: "lumiere_drafts",
 } as const;
 
 if (!url || !serviceRoleKey) {

@@ -1,3 +1,7 @@
+// 金属分類は brand.ts が唯一の定義。ここでは型として借りるだけ
+// （brand.ts → types.ts は型のみの参照なので実行時の循環は起きない）。
+import type { MetalType } from "./brand.ts";
+
 export type Narrator = {
   id: string;
   name: string;
@@ -23,10 +27,16 @@ export type Product = {
   id: string;
   name: string;
   description: string | null;
+  /** 商品カテゴリ（ring / crystal_ring / earcuff / earring / bangle / tiepin / cufflinks / necklace） */
+  category: string | null;
+  /** 主な木材（例: カリン）。特定されている場合のみ */
+  material: string | null;
+  /** サイズ表記（例: 3〜25号） */
+  size_range: string | null;
   /** 最低価格（税込・円）。null なら投稿文に金額を書かせない */
   price_from: number | null;
-  /** 金属使用の分類（none / hypoallergenic / metal）。null なら商品固有の断定をさせない */
-  metal_type: string | null;
+  /** 金属使用の分類。unknown なら商品固有の断定をさせない */
+  metal_type: MetalType | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;

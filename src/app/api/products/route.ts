@@ -2,6 +2,7 @@ import { getSupabase, T } from "@/lib/supabase";
 import { ok, fail } from "@/lib/http";
 import { getAuth } from "@/lib/auth";
 import { SAMPLE_PRODUCTS } from "@/lib/sampleData";
+import type { MetalType } from "@/lib/brand";
 
 // GET /api/products?all=1   有効な商品一覧（all=1で無効も含む）
 export async function GET(req: Request) {
@@ -31,9 +32,14 @@ function parsePrice(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 }
 
-// 金属分類。未知の値は null（＝商品固有の断定をさせない）に落とす。
-function parseMetalType(v: unknown): string | null {
-  return v === "none" || v === "hypoallergenic" || v === "metal" ? v : null;
+// 金属分類。未知の値は "unknown"（＝商品固有の断定をさせない）に落とす。
+function parseMetalType(v: unknown): MetalType {
+  return v === "none" || v === "resin_option" || v === "metal" ? v : "unknown";
+}
+
+// 空文字は null に落とす（DBに空文字を入れない）。
+function parseText(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
 // POST /api/products  { name, description?, price_from?, metal_type?, sort_order? }
@@ -57,6 +63,9 @@ export async function POST(req: Request) {
       .insert({
         name: body.name.trim(),
         description: body.description?.trim() || null,
+        category: parseText(body.category),
+        material: parseText(body.material),
+        size_range: parseText(body.size_range),
         price_from: parsePrice(body.price_from),
         metal_type: parseMetalType(body.metal_type),
         sort_order: sortOrder,
@@ -79,6 +88,10 @@ export async function PATCH(req: Request) {
     if (body.name !== undefined) patch.name = String(body.name).trim();
     if (body.description !== undefined)
       patch.description = body.description?.trim() || null;
+    if (body.category !== undefined) patch.category = parseText(body.category);
+    if (body.material !== undefined) patch.material = parseText(body.material);
+    if (body.size_range !== undefined)
+      patch.size_range = parseText(body.size_range);
     if (body.price_from !== undefined)
       patch.price_from = parsePrice(body.price_from);
     if (body.metal_type !== undefined)

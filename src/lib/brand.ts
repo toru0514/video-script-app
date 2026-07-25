@@ -47,25 +47,47 @@ export const FACTS = [
 // ------------------------------------------------------------
 // 金属使用の分類（商品ごとに言えることが違う）
 // ------------------------------------------------------------
-export type MetalType = "none" | "hypoallergenic" | "metal";
+export type MetalType = "none" | "resin_option" | "metal" | "unknown";
 
-export const METAL_TYPES: Record<
-  MetalType,
-  { label: string; rule: string }
-> = {
+export const METAL_TYPES: Record<MetalType, { label: string; rule: string }> = {
   none: {
     label: "金属不使用",
-    rule: "この商品は金属を使っていません。「金属不使用」と言い切って構いません。（該当：指輪・バングル・イヤーカフ）",
+    rule: "この商品は金属を使っていません。「金属不使用」と言い切って構いません。（該当：指輪・クリスタルウッドリング・バングル・イヤーカフ）",
   },
-  hypoallergenic: {
+  resin_option: {
     label: "金属アレルギー対応パーツ（樹脂・イヤリング変更可）",
     rule: "この商品は金属アレルギー対応パーツを使っています。「金属不使用」とは書かないでください。「金属アレルギー対応パーツを使用しています。樹脂フックやイヤリングへの変更もできます」の範囲で書きます。（該当：ピアス・イヤリング）",
   },
   metal: {
     label: "金属パーツ使用",
-    rule: "この商品は金具に金属（ゴールドまたはシルバーを選択可）を使っています。「金属不使用」「金属アレルギー対応」とは書かないでください。木の質感そのものを主役に書きます。（該当：ネクタイピン・カフス・ネックレス）",
+    rule: "この商品は金具に金属（ゴールドまたはシルバーを選択可）を使っています。「金属不使用」「金属アレルギー対応」とは書かないでください。金具に触れる場合は「金具はゴールドとシルバーからお選びいただけます」のように選べる利点として書き、「金属アレルギーの方には向きません」のような否定的な注意書きは書きません。（該当：ネクタイピン・カフス・ネックレス）",
+  },
+  unknown: {
+    label: "未確認",
+    rule: "この商品の金属使用状況は未確認です。商品固有の断定は避け、ブランド全体の表現「金属アレルギー対応。商品によって金属使用の有無が異なります」に留めてください。",
   },
 };
+
+// ------------------------------------------------------------
+// 商品カテゴリ（lumiere 統合時に取り込んだ。価格表・撮影プランの語彙と揃える）
+// ------------------------------------------------------------
+export const PRODUCT_CATEGORIES = {
+  ring: "木の指輪",
+  crystal_ring: "クリスタルウッドリング",
+  earcuff: "イヤーカフ",
+  earring: "ピアス・イヤリング",
+  bangle: "バングル",
+  tiepin: "ネクタイピン",
+  cufflinks: "カフス",
+  necklace: "ネックレス",
+} as const;
+
+export type ProductCategory = keyof typeof PRODUCT_CATEGORIES;
+
+export function categoryLabel(v?: string | null): string {
+  if (!v) return "";
+  return PRODUCT_CATEGORIES[v as ProductCategory] ?? v;
+}
 
 // ------------------------------------------------------------
 // 投稿の目的（アルゴリズム上の狙い）。台本・キャプションの型を切り替える。
@@ -404,13 +426,11 @@ export function buildBrandBlock(args: {
   const p = findPurpose(purpose);
   const price = priceLine(product);
 
-  // 金属の言い方は商品ごとに違う。未設定の商品はブランド全体の表現に留める。
-  const metal = product?.metal_type
-    ? METAL_TYPES[product.metal_type as MetalType]
-    : null;
-  const metalRule = metal
-    ? `この商品「${product?.name}」の分類：${metal.label}\n${metal.rule}`
-    : `この商品の金属使用状況が未設定です。商品固有の断定は避け、ブランド全体の表現「金属アレルギー対応。商品によって金属使用の有無が異なります」に留めてください。`;
+  // 金属の言い方は商品ごとに違う。未設定・未確認の商品はブランド全体の表現に留める。
+  const metal = METAL_TYPES[product?.metal_type ?? "unknown"];
+  const metalRule = product
+    ? `この商品「${product.name}」の分類：${metal.label}\n${metal.rule}`
+    : METAL_TYPES.unknown.rule;
 
   const priceRule = price
     ? `この商品の価格は「${price}」。金額に触れる場合は必ずこの表記をそのまま使い、値引き・キャンペーン・他の金額を書かないでください。`

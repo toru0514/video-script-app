@@ -9,10 +9,29 @@ import {
   findViolations,
   violationInstruction,
 } from "./brand.ts";
+import type { Product } from "./types.ts";
 
 /** テキストに違反があれば、そのラベルを返す。 */
 function labelsFor(text: string): string[] {
   return NG_RULES.filter((r) => r.pattern.test(text)).map((r) => r.label);
+}
+
+/** テスト用の商品。必要なフィールドだけ上書きして使う。 */
+function product(over: Partial<Product> = {}): Product {
+  return {
+    id: "1",
+    name: "木の指輪",
+    description: null,
+    category: "ring",
+    material: null,
+    size_range: null,
+    price_from: 4000,
+    metal_type: "none",
+    sort_order: 1,
+    is_active: true,
+    created_at: "",
+    ...over,
+  };
 }
 
 test("既存ルール: 一点もの系を検出する", () => {
@@ -123,16 +142,7 @@ test("木材別の価格表がプロンプトに含まれる", () => {
 
 test("価格未登録の商品では価格表を出さない", () => {
   // 「金額をどこにも書かないでください」と指示する以上、価格表を並べてはいけない。
-  const noPrice = {
-    id: "1",
-    name: "試作品",
-    description: null,
-    price_from: null,
-    metal_type: null,
-    sort_order: 1,
-    is_active: true,
-    created_at: "",
-  };
+  const noPrice = product({ name: "試作品", price_from: null, metal_type: "unknown" });
   const block = buildBrandBlock({ product: noPrice, purpose: "profile" });
   assert.equal(block.includes(PRICE_GUIDE), false);
   assert.equal(/木材別の価格/.test(block), false);
@@ -141,38 +151,27 @@ test("価格未登録の商品では価格表を出さない", () => {
 test("金属不使用の商品では金属の禁止行を出さない", () => {
   // 直下の金属セクションで「言い切って構いません」と書く以上、
   // 禁止リストに「金属不使用の断定は使わない」を並べてはいけない。
-  const none = {
-    id: "1",
-    name: "木の指輪",
-    description: null,
-    price_from: 4000,
-    metal_type: "none",
-    sort_order: 1,
-    is_active: true,
-    created_at: "",
-  };
-  const block = buildBrandBlock({ product: none, purpose: "profile" });
+  const block = buildBrandBlock({ product: product(), purpose: "profile" });
   assert.equal(/金属不使用の断定 は使わない/.test(block), false);
 
   // 金属を使う商品では従来どおり禁止行を出す
-  const metal = { ...none, name: "木のネクタイピン", metal_type: "metal" };
+  const metal = product({ name: "木のネクタイピン", metal_type: "metal" });
   const metalBlock = buildBrandBlock({ product: metal, purpose: "profile" });
   assert.match(metalBlock, /金属不使用の断定 は使わない/);
 });
 
 test("価格が確定している商品には価格表を出す", () => {
-  const priced = {
-    id: "1",
-    name: "木の指輪",
-    description: null,
-    price_from: 4000,
-    metal_type: "none",
-    sort_order: 1,
-    is_active: true,
-    created_at: "",
-  };
-  const block = buildBrandBlock({ product: priced, purpose: "profile" });
+  const block = buildBrandBlock({ product: product(), purpose: "profile" });
   assert.ok(block.includes(PRICE_GUIDE));
+});
+
+test("metal_type が未設定でも未確認として扱う", () => {
+  const block = buildBrandBlock({
+    product: product({ metal_type: null }),
+    purpose: "profile",
+  });
+  assert.match(block, /未確認/);
+  assert.match(block, /商品固有の断定は避け/);
 });
 
 test("PRICE_GUIDE に主要な木材が載っている", () => {

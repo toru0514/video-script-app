@@ -3,13 +3,29 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Product } from "@/lib/types";
-import { METAL_TYPES, type MetalType } from "@/lib/brand";
+import {
+  METAL_TYPES,
+  PRODUCT_CATEGORIES,
+  categoryLabel,
+  type MetalType,
+  type ProductCategory,
+} from "@/lib/brand";
 import { Button, Card, ErrorBox, Spinner } from "@/components/ui";
 
 const METAL_OPTIONS = Object.entries(METAL_TYPES) as [
   MetalType,
   { label: string; rule: string },
 ][];
+
+const CATEGORY_OPTIONS = Object.entries(PRODUCT_CATEGORIES) as [
+  ProductCategory,
+  string,
+][];
+
+const inputClass =
+  "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base";
+const selectClass =
+  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base";
 
 export function ProductsManager() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +34,9 @@ export function ProductsManager() {
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [newMaterial, setNewMaterial] = useState("");
+  const [newSize, setNewSize] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newMetal, setNewMetal] = useState("");
   const [adding, setAdding] = useState(false);
@@ -45,11 +64,17 @@ export function ProductsManager() {
       await api.post("/api/products", {
         name: newName.trim(),
         description: newDesc.trim() || undefined,
+        category: newCategory,
+        material: newMaterial,
+        size_range: newSize,
         price_from: newPrice.trim() || null,
-        metal_type: newMetal || null,
+        metal_type: newMetal,
       });
       setNewName("");
       setNewDesc("");
+      setNewCategory("");
+      setNewMaterial("");
+      setNewSize("");
       setNewPrice("");
       setNewMetal("");
       await load();
@@ -102,35 +127,59 @@ export function ProductsManager() {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="商品名（例：木の指輪）"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
+          className={inputClass}
         />
+        <select
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value)}
+          className={selectClass}
+        >
+          <option value="">カテゴリを選ぶ（必須）</option>
+          {CATEGORY_OPTIONS.map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
         <textarea
           value={newDesc}
           onChange={(e) => setNewDesc(e.target.value)}
           placeholder="素材・特徴・訴求ポイント（任意。例：金属アレルギー対応、防水、軽い、ウォールナット材）"
           rows={2}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base resize-y"
+          className={`${inputClass} resize-y`}
+        />
+        <input
+          value={newMaterial}
+          onChange={(e) => setNewMaterial(e.target.value)}
+          placeholder="木材（任意。例：カリン/エボニー）"
+          className={inputClass}
+        />
+        <input
+          value={newSize}
+          onChange={(e) => setNewSize(e.target.value)}
+          placeholder="サイズ（任意。例：3〜25号）"
+          className={inputClass}
         />
         <input
           value={newPrice}
           onChange={(e) => setNewPrice(e.target.value)}
           inputMode="numeric"
           placeholder="最低価格（税込・円。例：4000）※未入力なら投稿文に金額を書きません"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base"
+          className={inputClass}
         />
         <select
           value={newMetal}
           onChange={(e) => setNewMetal(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-base"
+          className={selectClass}
         >
-          <option value="">金属の分類：未設定（商品固有の断定をさせない）</option>
-          {METAL_OPTIONS.map(([key, m]) => (
+          <option value="">金属の分類：未確認（商品固有の断定をさせない）</option>
+          {METAL_OPTIONS.filter(([key]) => key !== "unknown").map(([key, m]) => (
             <option key={key} value={key}>
               {m.label}
             </option>
           ))}
         </select>
-        <Button onClick={add} disabled={!newName.trim() || adding}>
+        <Button onClick={add} disabled={!newName.trim() || !newCategory || adding}>
           {adding ? <Spinner label="追加中…" /> : "追加"}
         </Button>
       </Card>
@@ -176,8 +225,13 @@ function ProductRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(p.name);
   const [desc, setDesc] = useState(p.description ?? "");
+  const [category, setCategory] = useState(p.category ?? "");
+  const [material, setMaterial] = useState(p.material ?? "");
+  const [size, setSize] = useState(p.size_range ?? "");
   const [price, setPrice] = useState(p.price_from ? String(p.price_from) : "");
-  const [metal, setMetal] = useState(p.metal_type ?? "");
+  const [metal, setMetal] = useState<string>(
+    p.metal_type && p.metal_type !== "unknown" ? p.metal_type : "",
+  );
 
   return (
     <Card className={`p-4 space-y-2 ${!p.is_active ? "opacity-60" : ""}`}>
@@ -186,33 +240,59 @@ function ProductRow({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
+            className={inputClass}
           />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">カテゴリ：未設定</option>
+            {CATEGORY_OPTIONS.map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
           <textarea
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
             placeholder="素材・特徴・訴求ポイント"
             rows={2}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base resize-y"
+            className={`${inputClass} resize-y`}
+          />
+          <input
+            value={material}
+            onChange={(e) => setMaterial(e.target.value)}
+            placeholder="木材（例：カリン/エボニー）"
+            className={inputClass}
+          />
+          <input
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            placeholder="サイズ（例：3〜25号）"
+            className={inputClass}
           />
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             inputMode="numeric"
             placeholder="最低価格（税込・円。例：4000）※空なら金額を書きません"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base"
+            className={inputClass}
           />
           <select
             value={metal}
             onChange={(e) => setMetal(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base"
+            className={selectClass}
           >
-            <option value="">金属の分類：未設定</option>
-            {METAL_OPTIONS.map(([key, m]) => (
-              <option key={key} value={key}>
-                {m.label}
-              </option>
-            ))}
+            <option value="">金属の分類：未確認</option>
+            {METAL_OPTIONS.filter(([key]) => key !== "unknown").map(
+              ([key, m]) => (
+                <option key={key} value={key}>
+                  {m.label}
+                </option>
+              ),
+            )}
           </select>
           <div className="flex gap-2">
             <Button
@@ -220,8 +300,11 @@ function ProductRow({
                 onUpdate(p.id, {
                   name,
                   description: desc,
+                  category,
+                  material,
+                  size_range: size,
                   price_from: price.trim() ? Number(price) : null,
-                  metal_type: metal || null,
+                  metal_type: (metal || "unknown") as MetalType,
                 });
                 setEditing(false);
               }}
@@ -239,6 +322,11 @@ function ProductRow({
             <div className="min-w-0">
               <div className="font-medium flex items-center gap-2">
                 {p.name}
+                {p.category && (
+                  <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full">
+                    {categoryLabel(p.category)}
+                  </span>
+                )}
                 {!p.is_active && (
                   <span className="text-xs bg-neutral-200 text-neutral-500 px-2 py-0.5 rounded-full">
                     無効
@@ -260,12 +348,18 @@ function ProductRow({
                     価格未登録（投稿文に金額を書きません）
                   </span>
                 )}
-                {p.metal_type ? (
+                {p.metal_type && p.metal_type !== "unknown" ? (
                   <span className="text-neutral-500">
-                    ／{METAL_TYPES[p.metal_type as MetalType]?.label}
+                    ／{METAL_TYPES[p.metal_type].label}
                   </span>
                 ) : (
-                  <span className="text-amber-600">／金属の分類が未設定</span>
+                  <span className="text-amber-600">／金属の分類が未確認</span>
+                )}
+                {p.material && (
+                  <span className="text-neutral-500">／{p.material}</span>
+                )}
+                {p.size_range && (
+                  <span className="text-neutral-500">／{p.size_range}</span>
                 )}
               </p>
             </div>

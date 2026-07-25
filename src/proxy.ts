@@ -15,7 +15,19 @@ import { AUTH_COOKIE } from "@/lib/authConstants";
 type Gate = "admin" | "narrator" | "editor" | "guest";
 
 // AI生成系（ゲスト禁止）
-const AI_PATHS = ["/api/generate", "/api/patterns/extract", "/api/themes/suggest"];
+const AI_PATHS = [
+  "/api/generate",
+  "/api/patterns/extract",
+  "/api/themes/suggest",
+  "/api/shoot/plan",
+  "/api/shoot/caption",
+];
+
+// 撮影セクションは管理者専用。ゲストにはサンプルも見せない
+// （API 側でも requireAdmin で弾いているが、ページを開かせない）。
+function isShootPath(pathname: string): boolean {
+  return pathname.startsWith("/shoot") || pathname.startsWith("/api/shoot/");
+}
 
 function gateFromRequest(req: NextRequest): Gate {
   const token = req.cookies.get(AUTH_COOKIE)?.value;
@@ -74,7 +86,8 @@ export function proxy(req: NextRequest) {
     pathname === "/narrator" ||
     pathname.startsWith("/api/narrator/") ||
     pathname === "/editor" ||
-    pathname.startsWith("/api/editor/")
+    pathname.startsWith("/api/editor/") ||
+    isShootPath(pathname)
   ) {
     if (isApi) return jsonError("認証が必要です", 401);
     const loginUrl = new URL("/login", req.url);
