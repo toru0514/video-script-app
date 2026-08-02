@@ -106,6 +106,12 @@ export default function DraftDetailPage() {
     setError(null);
     try {
       await api.patch("/api/shoot/drafts", { id: draft.id, status: next });
+      // 投稿済みにしたらその下書きでの作業は終わりなので一覧へ戻る。
+      // 未投稿に戻す場合は編集を続けることが多いので留まる。
+      if (next === "posted") {
+        router.push("/shoot/drafts");
+        return;
+      }
       setDraft({ ...draft, status: next });
     } catch (e) {
       setError((e as Error).message);

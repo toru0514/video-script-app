@@ -113,6 +113,52 @@ export function parseGenerateResult(raw: string): GenerateResult {
   return normalize(obj);
 }
 
+/**
+ * 生成結果が投稿文として使えるかを判定する。
+ *
+ * Gemini は稀に撮影プランだけを返して caption / hook / hashtags を落とすことがある
+ * （thinking がトークンを食い、長い出力で尻切れになる）。JSON としては妥当なので
+ * パースは通ってしまい、そのまま保存すると中身が空の下書きができる。
+ * 保存の手前で必ずここを通す。
+ */
+export function missingFields(
+  r: GenerateResult,
+  format: PostDesign["format"],
+): string[] {
+  const missing: string[] = [];
+  if (!r.caption.trim()) missing.push("caption");
+  if (!r.hook.trim()) missing.push("hook");
+  if (!r.cta.trim()) missing.push("cta");
+  if (r.hashtags.length === 0) missing.push("hashtags");
+  if (!r.composition.trim()) missing.push("composition");
+  if (format === "carousel" && !r.carousel?.length) missing.push("carousel");
+  if (format === "reel" && !r.reel) missing.push("reel");
+  return missing;
+}
+
+/**
+ * 1行目（hook）に購入導線が入っていないか検査する。
+ *
+ * 最終行のCTAが「プロフィールのリンク（Creema）からご確認いただけます」と言うので、
+ * 1行目で同じことを言うと1投稿で2回繰り返すことになる。
+ * 1行目は「何の商品か」と「その商品ならではの良さ」に使う。
+ * 問題があれば理由を、なければ null を返す。
+ */
+export function hookProblem(hook: string): string | null {
+  const patterns: [RegExp, string][] = [
+    [/プロフィール/, "「プロフィール」への言及"],
+    [/Creema/i, "「Creema」への言及"],
+    [/(価格|サイズ|在庫)[^。]{0,12}(ここで|こちらで)?(分かります|わかります|確認)/, "価格・在庫の確認案内"],
+    [/リンク(へ|から)/, "リンクへの誘導"],
+  ];
+  for (const [re, label] of patterns) {
+    if (re.test(hook)) {
+      return `1行目に${label}が入っています。購入導線は最終行のCTAの役割なので、1行目からは外してください。`;
+    }
+  }
+  return null;
+}
+
 export function parseCaptionResult(raw: string): CaptionResult {
   const obj = parseJson(raw);
   if (!obj) throw new Error("Gemini の出力をJSONとして解釈できませんでした。");
@@ -140,7 +186,13 @@ async function callGemini(contents: Contents): Promise<string> {
     const res = await getClient().models.generateContent({
       model: getModelName(),
       contents,
-      config: { responseMimeType: "application/json", temperature: 0.9 },
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.9,
+        // カルーセル8枚などは出力が長い。thinking がトークンを食うため
+        // 既定のままだと本文が尻切れになることがある。
+        maxOutputTokens: 8192,
+      },
     });
     const text = res.text ?? "";
     if (!text) throw new Error("Gemini から空のレスポンスが返りました。");
@@ -185,8 +237,36 @@ export async function generatePlan(
 ): Promise<GenerateResult & { warnings: string[] }> {
   const prompt = buildPrompt(product, material, backgrounds, design, planned);
 
-  let raw = await callGemini(prompt);
-  let result = parseGenerateResult(raw);
+  // 項目の欠落と、1行目の購入導線はプロンプトだけでは防ぎきれないので、
+  // 直らなければ指摘を添えて作り直させる（最大3回）。
+  let raw = "";
+  let result: GenerateResult | null = null;
+  let missing: string[] = [];
+  let hookIssue: string | null = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const p =
+      attempt === 1
+        ? prompt
+        : `${prompt}\n\n# 直前の出力の問題（必ず直すこと）\n${[
+            missing.length ? `- 次の項目が空でした: ${missing.join(", ")}` : "",
+            hookIssue ? `- ${hookIssue}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")}`;
+
+    raw = await callGemini(p);
+    result = parseGenerateResult(raw);
+    missing = missingFields(result, design.format);
+    hookIssue = hookProblem(result.hook);
+    if (missing.length === 0 && !hookIssue) break;
+  }
+
+  if (!result || missing.length > 0) {
+    throw new Error(
+      `Gemini の出力に必要な項目が揃いませんでした（${missing.join(", ")}）。もう一度お試しください。`,
+    );
+  }
 
   // 表現ルール違反はプロンプトだけでは防ぎきれないため、検出したら1度だけ書き直させる。
   const metalFree = product.metal_type === "none";
@@ -199,7 +279,11 @@ export async function generatePlan(
 
   return {
     ...result,
-    warnings: violations.map((v) => `「${v.matched}」${v.reason}`),
+    warnings: [
+      ...violations.map((v) => `「${v.matched}」${v.reason}`),
+      // 本文としては使えるので保存は止めず、画面で気づけるようにする
+      ...(hookIssue ? [hookIssue] : []),
+    ],
   };
 }
 
@@ -224,11 +308,20 @@ export async function generateCaptionFromImages(
     inlineData: { mimeType: img.mimeType, data: img.data },
   }));
 
-  let raw = await callGemini([
-    { text: buildCaptionPrompt(design, note) },
-    ...parts,
-  ]);
-  let result = parseCaptionResult(raw);
+  let raw = "";
+  let result: CaptionResult | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    raw = await callGemini([{ text: buildCaptionPrompt(design, note) }, ...parts]);
+    result = parseCaptionResult(raw);
+    if (result.caption.trim() && result.hook.trim() && result.hashtags.length > 0)
+      break;
+    result = null;
+  }
+  if (!result) {
+    throw new Error(
+      "Gemini の出力に投稿文が含まれませんでした。もう一度お試しください。",
+    );
+  }
 
   // 写真からの生成でも表現ルールは同じ。違反したら1度だけ書き直させる。
   // 商品が特定されないため金属ルールの免除はしない。
