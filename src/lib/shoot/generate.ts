@@ -234,8 +234,9 @@ export async function generatePlan(
   backgrounds: Background[],
   design: PostDesign,
   planned?: PlannedPost | null,
+  note?: string,
 ): Promise<GenerateResult & { warnings: string[] }> {
-  const prompt = buildPrompt(product, material, backgrounds, design, planned);
+  const prompt = buildPrompt(product, material, backgrounds, design, planned, note);
 
   // 項目の欠落と、1行目の購入導線はプロンプトだけでは防ぎきれないので、
   // 直らなければ指摘を添えて作り直させる（最大3回）。
