@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { missingFields, parseGenerateResult } from "./generate.ts";
+import { hookProblem, missingFields, parseGenerateResult } from "./generate.ts";
 import type { GenerateResult } from "./types.ts";
 
 function result(over: Partial<GenerateResult> = {}): GenerateResult {
@@ -53,6 +53,31 @@ test("空白だけの本文は欠けとみなす", () => {
 
 test("撮影プランが空でも欠けとする", () => {
   assert.ok(missingFields(result({ composition: "" }), "feed").includes("composition"));
+});
+
+// ---- 1行目に購入導線を書かせない ----
+
+test("1行目の購入導線を検出する", () => {
+  // 実際に生成された、CTAと重複していた1行目
+  for (const hook of [
+    "木製のネクタイピン。価格と在庫はプロフィールのリンクへ。",
+    "木のイヤーカフは軽くて痛くない着け心地。価格と在庫はここで分かります。",
+    "木のバングルは、サイズと在庫をCreemaで確認できます。",
+    "ピンクアイボリーの木の指輪。価格と在庫はここで分かります。",
+  ]) {
+    assert.ok(hookProblem(hook), `検出できていない: ${hook}`);
+  }
+});
+
+test("良い1行目は問題なしとする", () => {
+  for (const hook of [
+    "木の指輪をお探しの方へ。金属アレルギー対応のハンドメイド品です。",
+    "金属アレルギーで、イヤリング選びを諦めていませんか？",
+    "大人の装いを引き立てる、エボニーの木のネクタイピン。",
+    "木の指輪 ハンドメイド。メープルのクリスタルウッドリングは¥8,000〜（税込）でご案内しています。",
+  ]) {
+    assert.equal(hookProblem(hook), null, `誤検出: ${hook}`);
+  }
 });
 
 test("実際に返ってきた欠損JSONをパースすると空になる", () => {
