@@ -10,7 +10,7 @@ import type { Product } from "@/lib/types";
 
 export const maxDuration = 60;
 
-// POST /api/shoot/plan  { productId, materialId?, backgroundIds?, theme?, goal?, format?, planRef? }
+// POST /api/shoot/plan  { productId, materialId?, backgroundIds?, theme?, goal?, format?, planRef?, note? }
 export async function POST(req: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     const planned = findPlannedPost(
       typeof body?.planRef === "string" ? body.planRef : null,
     );
+    const note = typeof body?.note === "string" ? body.note : undefined;
 
     if (!productId) return fail("商品が選択されていません。");
 
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
       backgrounds,
       design,
       planned,
+      note,
     );
     return ok({ ...result, ...design });
   } catch (e) {

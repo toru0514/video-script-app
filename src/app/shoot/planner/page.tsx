@@ -58,6 +58,7 @@ export default function PlannerPage() {
   const [bgIds, setBgIds] = useState<string[]>([]);
 
   const [planRef, setPlanRef] = useState("");
+  const [note, setNote] = useState("");
   const [theme, setTheme] = useState<PostTheme>("product");
   const [goal, setGoal] = useState<PostGoal>("profile");
   const [format, setFormat] = useState<PostFormat>("feed");
@@ -115,6 +116,7 @@ export default function PlannerPage() {
           goal,
           format,
           planRef: planRef || null,
+          note: note.trim() || undefined,
         },
       );
 
@@ -277,6 +279,22 @@ export default function PlannerPage() {
               </select>
               <p className="mt-1 text-xs text-neutral-400">{formatHint}</p>
             </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              この投稿で伝えたいこと（任意）
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              placeholder="例：パープルハートの指輪とピアスを一緒に紹介し、同じ木材で揃えられることを伝えたい"
+              className={`${inputClass} resize-y`}
+            />
+            <p className="mt-1 text-xs text-neutral-400">
+              複数の商品をまとめて紹介したいときや、切り口を指定したいときに使います。ブランドルールより優先はされません。
+            </p>
           </div>
         </Card>
       </section>

@@ -206,14 +206,21 @@ export function buildPrompt(
   backgrounds: Background[],
   design: PostDesign,
   planned?: PlannedPost | null,
+  note?: string,
 ): string {
+  // 商品マスタは1商品単位なので、複数商品をまたぐ投稿や特定の切り口は
+  // このメモで指示する。ブランドルールより優先はしない。
+  const noteBlock = note?.trim()
+    ? `\n# この投稿で伝えたいこと（優先して反映する。ただしブランドルールには必ず従う）\n${note.trim()}\n`
+    : "";
+
   return `あなたは木のアクセサリーブランドのSNS撮影ディレクター兼コピーライターです。
 以下の設計に沿って、Instagram投稿用の撮影プランと投稿文・ハッシュタグを作成してください。
 
 ${buildBrandBlock({ product, purpose: design.goal })}
 
 ${designBlock(design)}
-${planned ? `\n${plannedPostBlock(planned)}\n` : ""}
+${noteBlock}${planned ? `\n${plannedPostBlock(planned)}\n` : ""}
 ${FORMAT_SPEC[design.format]}
 
 # 商品
