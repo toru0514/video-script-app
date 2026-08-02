@@ -137,6 +137,33 @@ export function missingFields(
 }
 
 /**
+ * 投稿文の1行目が hook と一致し、短く収まっているかを検査する。
+ *
+ * Instagram は1行目だけが「…もっと見る」の前に出るので、ここが長いと切れる。
+ * 本文の字数を増やすと、1文で切らずに2文つなげてしまうことがある。
+ * 問題があれば理由を、なければ null を返す。
+ */
+export function captionStructureProblem(
+  caption: string,
+  hook: string,
+): string | null {
+  const firstLine = caption.split("\n")[0]?.trim() ?? "";
+  if (!firstLine) return null; // 空は missingFields 側で扱う
+
+  if (hook.trim() && firstLine !== hook.trim()) {
+    return `投稿文の1行目と hook が違います（1行目「${firstLine.slice(0, 30)}…」/ hook「${hook.slice(0, 30)}…」）。1行目と hook は同じ一文にしてください。`;
+  }
+  if (firstLine.length > 40) {
+    return `1行目が${firstLine.length}字あります。Instagramは1行目しか折りたたみ前に出ないので、35字以内の1文に収めてください。`;
+  }
+  // 1行目に句点が2つ以上 = 2文以上つないでいる
+  if ((firstLine.match(/。/g) ?? []).length > 1) {
+    return "1行目に文が2つ以上あります。1行目は1文だけにして、続きは空行のあとに書いてください。";
+  }
+  return null;
+}
+
+/**
  * 1行目（hook）に購入導線が入っていないか検査する。
  *
  * 最終行のCTAが「プロフィールのリンク（Creema）からご確認いただけます」と言うので、
@@ -244,6 +271,7 @@ export async function generatePlan(
   let result: GenerateResult | null = null;
   let missing: string[] = [];
   let hookIssue: string | null = null;
+  let structureIssue: string | null = null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     const p =
@@ -252,6 +280,7 @@ export async function generatePlan(
         : `${prompt}\n\n# 直前の出力の問題（必ず直すこと）\n${[
             missing.length ? `- 次の項目が空でした: ${missing.join(", ")}` : "",
             hookIssue ? `- ${hookIssue}` : "",
+            structureIssue ? `- ${structureIssue}` : "",
           ]
             .filter(Boolean)
             .join("\n")}`;
@@ -260,7 +289,8 @@ export async function generatePlan(
     result = parseGenerateResult(raw);
     missing = missingFields(result, design.format);
     hookIssue = hookProblem(result.hook);
-    if (missing.length === 0 && !hookIssue) break;
+    structureIssue = captionStructureProblem(result.caption, result.hook);
+    if (missing.length === 0 && !hookIssue && !structureIssue) break;
   }
 
   if (!result || missing.length > 0) {
@@ -284,6 +314,7 @@ export async function generatePlan(
       ...violations.map((v) => `「${v.matched}」${v.reason}`),
       // 本文としては使えるので保存は止めず、画面で気づけるようにする
       ...(hookIssue ? [hookIssue] : []),
+      ...(structureIssue ? [structureIssue] : []),
     ],
   };
 }
@@ -311,12 +342,30 @@ export async function generateCaptionFromImages(
 
   let raw = "";
   let result: CaptionResult | null = null;
+  let issue: string | null = null;
+
   for (let attempt = 1; attempt <= 3; attempt++) {
-    raw = await callGemini([{ text: buildCaptionPrompt(design, note) }, ...parts]);
-    result = parseCaptionResult(raw);
-    if (result.caption.trim() && result.hook.trim() && result.hashtags.length > 0)
-      break;
-    result = null;
+    const text =
+      attempt === 1 || !issue
+        ? buildCaptionPrompt(design, note)
+        : `${buildCaptionPrompt(design, note)}\n\n# 直前の出力の問題（必ず直すこと）\n- ${issue}`;
+
+    raw = await callGemini([{ text }, ...parts]);
+    const parsed = parseCaptionResult(raw);
+    if (
+      !parsed.caption.trim() ||
+      !parsed.hook.trim() ||
+      parsed.hashtags.length === 0
+    ) {
+      result = null;
+      issue = "caption / hook / hashtags のいずれかが空でした。";
+      continue;
+    }
+    result = parsed;
+    issue =
+      captionStructureProblem(parsed.caption, parsed.hook) ??
+      hookProblem(parsed.hook);
+    if (!issue) break;
   }
   if (!result) {
     throw new Error(
@@ -339,6 +388,9 @@ export async function generateCaptionFromImages(
 
   return {
     ...result,
-    warnings: violations.map((v) => `「${v.matched}」${v.reason}`),
+    warnings: [
+      ...violations.map((v) => `「${v.matched}」${v.reason}`),
+      ...(issue ? [issue] : []),
+    ],
   };
 }
