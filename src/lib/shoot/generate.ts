@@ -113,6 +113,29 @@ export function parseGenerateResult(raw: string): GenerateResult {
   return normalize(obj);
 }
 
+/**
+ * 生成結果が投稿文として使えるかを判定する。
+ *
+ * Gemini は稀に撮影プランだけを返して caption / hook / hashtags を落とすことがある
+ * （thinking がトークンを食い、長い出力で尻切れになる）。JSON としては妥当なので
+ * パースは通ってしまい、そのまま保存すると中身が空の下書きができる。
+ * 保存の手前で必ずここを通す。
+ */
+export function missingFields(
+  r: GenerateResult,
+  format: PostDesign["format"],
+): string[] {
+  const missing: string[] = [];
+  if (!r.caption.trim()) missing.push("caption");
+  if (!r.hook.trim()) missing.push("hook");
+  if (!r.cta.trim()) missing.push("cta");
+  if (r.hashtags.length === 0) missing.push("hashtags");
+  if (!r.composition.trim()) missing.push("composition");
+  if (format === "carousel" && !r.carousel?.length) missing.push("carousel");
+  if (format === "reel" && !r.reel) missing.push("reel");
+  return missing;
+}
+
 export function parseCaptionResult(raw: string): CaptionResult {
   const obj = parseJson(raw);
   if (!obj) throw new Error("Gemini の出力をJSONとして解釈できませんでした。");
@@ -140,7 +163,13 @@ async function callGemini(contents: Contents): Promise<string> {
     const res = await getClient().models.generateContent({
       model: getModelName(),
       contents,
-      config: { responseMimeType: "application/json", temperature: 0.9 },
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.9,
+        // カルーセル8枚などは出力が長い。thinking がトークンを食うため
+        // 既定のままだと本文が尻切れになることがある。
+        maxOutputTokens: 8192,
+      },
     });
     const text = res.text ?? "";
     if (!text) throw new Error("Gemini から空のレスポンスが返りました。");
@@ -185,8 +214,21 @@ export async function generatePlan(
 ): Promise<GenerateResult & { warnings: string[] }> {
   const prompt = buildPrompt(product, material, backgrounds, design, planned);
 
-  let raw = await callGemini(prompt);
-  let result = parseGenerateResult(raw);
+  // 項目が欠けた応答が返ることがあるので、揃うまで作り直させる（最大3回）。
+  let raw = "";
+  let result: GenerateResult | null = null;
+  let missing: string[] = [];
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    raw = await callGemini(prompt);
+    result = parseGenerateResult(raw);
+    missing = missingFields(result, design.format);
+    if (missing.length === 0) break;
+  }
+  if (!result || missing.length > 0) {
+    throw new Error(
+      `Gemini の出力に必要な項目が揃いませんでした（${missing.join(", ")}）。もう一度お試しください。`,
+    );
+  }
 
   // 表現ルール違反はプロンプトだけでは防ぎきれないため、検出したら1度だけ書き直させる。
   const metalFree = product.metal_type === "none";
@@ -224,11 +266,20 @@ export async function generateCaptionFromImages(
     inlineData: { mimeType: img.mimeType, data: img.data },
   }));
 
-  let raw = await callGemini([
-    { text: buildCaptionPrompt(design, note) },
-    ...parts,
-  ]);
-  let result = parseCaptionResult(raw);
+  let raw = "";
+  let result: CaptionResult | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    raw = await callGemini([{ text: buildCaptionPrompt(design, note) }, ...parts]);
+    result = parseCaptionResult(raw);
+    if (result.caption.trim() && result.hook.trim() && result.hashtags.length > 0)
+      break;
+    result = null;
+  }
+  if (!result) {
+    throw new Error(
+      "Gemini の出力に投稿文が含まれませんでした。もう一度お試しください。",
+    );
+  }
 
   // 写真からの生成でも表現ルールは同じ。違反したら1度だけ書き直させる。
   // 商品が特定されないため金属ルールの免除はしない。
