@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { hookProblem, missingFields, parseGenerateResult } from "./generate.ts";
+import {
+  captionStructureProblem,
+  hookProblem,
+  missingFields,
+  parseGenerateResult,
+} from "./generate.ts";
 import type { GenerateResult } from "./types.ts";
 
 function result(over: Partial<GenerateResult> = {}): GenerateResult {
@@ -78,6 +83,31 @@ test("良い1行目は問題なしとする", () => {
   ]) {
     assert.equal(hookProblem(hook), null, `誤検出: ${hook}`);
   }
+});
+
+// ---- 1行目の構造 ----
+
+test("1行目とhookが食い違っていたら検出する", () => {
+  // 実際に発生したケース
+  const caption =
+    "楽器にも使われる堅牢な木材を、身につけるバングルとして削り出しました。何度も手で磨き上げることで、なめらかな肌触りと独特の光沢が生まれます。\n\n本文\n\nCTA";
+  const hook = "楽器にも使われる材で仕立てた、木のアクセサリー。";
+  assert.ok(captionStructureProblem(caption, hook));
+});
+
+test("1行目が長すぎたら検出する", () => {
+  const long = "楽器にも使われる堅牢な木材を、身につけるかたちのバングルとして丁寧に削り出しました";
+  assert.ok(captionStructureProblem(`${long}\n\n本文`, long));
+});
+
+test("1行目に文が2つあれば検出する", () => {
+  const two = "木のバングルです。軽いです。";
+  assert.ok(captionStructureProblem(`${two}\n\n本文`, two));
+});
+
+test("正しい構造なら問題なしとする", () => {
+  const hook = "楽器にも使われる材で仕立てた木のバングル。";
+  assert.equal(captionStructureProblem(`${hook}\n\n本文2〜3文\n\nCTA`, hook), null);
 });
 
 test("実際に返ってきた欠損JSONをパースすると空になる", () => {
